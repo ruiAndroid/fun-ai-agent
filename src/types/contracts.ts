@@ -3,7 +3,7 @@ export type DesiredState = "RUNNING" | "STOPPED";
 export type RuntimeType = "ZEROCLAW";
 export type InstanceActionType = "START" | "STOP" | "RESTART" | "ROLLBACK";
 
-export interface LobsterInstance {
+export interface ClawInstance {
   id: string;
   name: string;
   hostId: string;

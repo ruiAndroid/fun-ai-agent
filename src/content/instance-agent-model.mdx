@@ -1,0 +1,29 @@
+---
+title: Claw Instance and Agent Model
+description: Recommended model for mapping many agents inside each claw instance.
+---
+
+# Claw Instance and Agent Model
+
+## Domain model
+
+- `Host`: physical or virtual machine running Docker
+- `ClawInstance`: isolated runtime unit managed by control plane
+- `Agent`: logical worker inside one claw instance
+- `Task`: executable work unit assigned to an agent
+
+## Mapping strategy
+
+- One `ClawInstance` can host many agents
+- Agents should expose stable metadata:
+  - `agentId`
+  - `agentType`
+  - `version`
+  - `capabilities`
+- Keep instance-level lifecycle (`START`, `STOP`, `RESTART`, `ROLLBACK`) in control API
+- Keep agent-level behavior docs and runbooks in this docs site
+
+## Why this split works
+
+- Dashboard: real-time operations and actions
+- Docs: durable knowledge, standards, and troubleshooting context

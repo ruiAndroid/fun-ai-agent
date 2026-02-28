@@ -1,6 +1,7 @@
-import { AcceptedActionResponse, InstanceActionType, ListResponse, LobsterInstance } from "@/types/contracts";
+import { AcceptedActionResponse, ClawInstance, InstanceActionType, ListResponse } from "@/types/contracts";
+import { appConfig } from "@/config/app-config";
 
-const BASE_URL = process.env.NEXT_PUBLIC_CONTROL_API_BASE_URL ?? "http://localhost:8080";
+const BASE_URL = appConfig.controlApiBaseUrl;
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
@@ -19,7 +20,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listInstances() {
-  return requestJson<ListResponse<LobsterInstance>>("/v1/instances");
+  return requestJson<ListResponse<ClawInstance>>("/v1/instances");
 }
 
 export async function submitInstanceAction(instanceId: string, action: InstanceActionType) {
