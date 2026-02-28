@@ -28,8 +28,11 @@ Edit `controlApiBaseUrl`, for example:
 ```ts
 export const appConfig = {
   controlApiBaseUrl: "/fun-claw/api",
+  defaultHostId: "00000000-0000-0000-0000-000000000098",
 } as const;
 ```
+
+`defaultHostId` is the fixed host UUID used when creating instances in single-host deployments.
 
 ## Routes
 

@@ -1,13 +1,14 @@
 "use client";
 
 import { createInstance, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
+import { appConfig } from "@/config/app-config";
 import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -37,14 +38,12 @@ const uiText = {
   rollback: "\u56de\u6eda",
   noInstances: "\u5f53\u524d\u6ca1\u6709\u53ef\u7ba1\u7406\u7684claw\u5b9e\u4f8b\u3002",
   createModalTitle: "\u521b\u5efa\u65b0\u5b9e\u4f8b",
-  hostIdInputTip: "\u8bf7\u8f93\u5165UUID\uff0c\u4f8b\u5982 123e4567-e89b-12d3-a456-426614174000",
   desiredStateRunning: "\u8fd0\u884c",
   desiredStateStopped: "\u505c\u6b62",
   noPresetImage: "\u5f53\u524d\u6ca1\u6709\u53ef\u9009\u9884\u7f6e\u955c\u50cf\uff0c\u8bf7\u5148\u5728API\u914d\u7f6e app.images.presets",
   requiredName: "\u8bf7\u8f93\u5165\u5b9e\u4f8b\u540d",
-  requiredHostId: "\u8bf7\u8f93\u5165\u5bbf\u4e3b\u673aID",
-  invalidHostId: "\u5bbf\u4e3b\u673aID\u683c\u5f0f\u4e0d\u6b63\u786e\uff08\u9700UUID\uff09",
   requiredImage: "\u8bf7\u9009\u62e9\u955c\u50cf",
+  fixedHostTipPrefix: "\u5f53\u524d\u5bbf\u4e3b\u673aID\u5df2\u56fa\u5b9a\uff1a",
 } as const;
 
 function statusColor(status: ClawInstance["status"]) {
@@ -62,7 +61,7 @@ function statusColor(status: ClawInstance["status"]) {
 
 export function Dashboard() {
   const [messageApi, messageContext] = message.useMessage();
-  const [createForm] = Form.useForm<CreateInstanceRequest>();
+  const [createForm] = Form.useForm<CreateInstanceFormValues>();
   const [instances, setInstances] = useState<ClawInstance[]>([]);
   const [images, setImages] = useState<ImagePreset[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>();
@@ -132,8 +131,12 @@ export function Dashboard() {
   const handleCreateInstance = async () => {
     try {
       const values = await createForm.validateFields();
+      const request: CreateInstanceRequest = {
+        ...values,
+        hostId: appConfig.defaultHostId,
+      };
       setCreatingInstance(true);
-      const instance = await createInstance(values);
+      const instance = await createInstance(request);
       closeCreateModal();
       await loadInstances();
       setSelectedInstanceId(instance.id);
@@ -264,7 +267,7 @@ export function Dashboard() {
         okText={uiText.create}
         confirmLoading={creatingInstance}
       >
-        <Form<CreateInstanceRequest> form={createForm} layout="vertical">
+        <Form<CreateInstanceFormValues> form={createForm} layout="vertical">
           <Form.Item
             name="name"
             label={uiText.instanceName}
@@ -272,17 +275,7 @@ export function Dashboard() {
           >
             <Input placeholder="zeroclaw-instance-01" />
           </Form.Item>
-          <Form.Item
-            name="hostId"
-            label={uiText.hostId}
-            extra={uiText.hostIdInputTip}
-            rules={[
-              { required: true, message: uiText.requiredHostId },
-              { pattern: uuidPattern, message: uiText.invalidHostId },
-            ]}
-          >
-            <Input placeholder="123e4567-e89b-12d3-a456-426614174000" />
-          </Form.Item>
+          <Alert type="info" showIcon message={`${uiText.fixedHostTipPrefix}${appConfig.defaultHostId}`} style={{ marginBottom: 16 }} />
           <Form.Item
             name="image"
             label={uiText.image}
