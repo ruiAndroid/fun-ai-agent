@@ -37,6 +37,9 @@ const uiText = {
   restart: "\u91cd\u542f",
   rollback: "\u56de\u6eda",
   delete: "\u5220\u9664",
+  confirmActionTitle: "\u786e\u8ba4\u64cd\u4f5c",
+  confirmActionContentPrefix: "\u786e\u8ba4\u5bf9\u5b9e\u4f8b\u6267\u884c\u64cd\u4f5c\uff1a",
+  confirmActionOk: "\u786e\u8ba4\u6267\u884c",
   deleteConfirmTitle: "\u5220\u9664\u5b9e\u4f8b",
   deleteConfirmContentPrefix: "\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\uff0c\u786e\u8ba4\u5220\u9664\uff1a",
   deleteSuccessPrefix: "\u5b9e\u4f8b\u5df2\u5220\u9664\uff1a",
@@ -206,6 +209,25 @@ export function Dashboard() {
     }
   };
 
+  const handleSensitiveAction = (action: Exclude<InstanceActionType, "START">) => {
+    const instanceName = selectedInstance?.name;
+    if (!instanceName) {
+      return;
+    }
+    Modal.confirm({
+      title: uiText.confirmActionTitle,
+      content: `${uiText.confirmActionContentPrefix}${action} (${instanceName})`,
+      okText: uiText.confirmActionOk,
+      cancelText: uiText.cancel,
+      okButtonProps: {
+        danger: action === "ROLLBACK",
+      },
+      onOk: async () => {
+        await handleAction(action);
+      },
+    });
+  };
+
   const handleDeleteInstance = async () => {
     if (!selectedInstance) {
       return;
@@ -303,13 +325,26 @@ export function Dashboard() {
                     >
                       {uiText.start}
                     </Button>
-                    <Button loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("STOP")}>
+                    <Button
+                      loading={submittingAction}
+                      disabled={deletingInstance}
+                      onClick={() => handleSensitiveAction("STOP")}
+                    >
                       {uiText.stop}
                     </Button>
-                    <Button loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("RESTART")}>
+                    <Button
+                      loading={submittingAction}
+                      disabled={deletingInstance}
+                      onClick={() => handleSensitiveAction("RESTART")}
+                    >
                       {uiText.restart}
                     </Button>
-                    <Button danger loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("ROLLBACK")}>
+                    <Button
+                      danger
+                      loading={submittingAction}
+                      disabled={deletingInstance}
+                      onClick={() => handleSensitiveAction("ROLLBACK")}
+                    >
                       {uiText.rollback}
                     </Button>
                     <Button danger loading={deletingInstance} disabled={submittingAction} onClick={openDeleteModal}>
