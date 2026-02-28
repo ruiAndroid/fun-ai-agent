@@ -79,6 +79,8 @@ export function Dashboard() {
   const [loadingInstances, setLoadingInstances] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<Exclude<InstanceActionType, "START">>();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -202,15 +204,17 @@ export function Dashboard() {
 
   const handleAction = async (action: InstanceActionType) => {
     if (!selectedInstanceId) {
-      return;
+      return false;
     }
     setSubmittingAction(true);
     try {
       await submitInstanceAction(selectedInstanceId, action);
       await loadInstances();
       messageApi.success(`${uiText.actionSubmittedPrefix}${action}`);
+      return true;
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.actionFailed);
+      return false;
     } finally {
       setSubmittingAction(false);
     }
@@ -221,18 +225,26 @@ export function Dashboard() {
     if (!instanceName) {
       return;
     }
-    Modal.confirm({
-      title: uiText.confirmActionTitle,
-      content: `${uiText.confirmActionContentPrefix}${action} (${instanceName})`,
-      okText: uiText.confirmActionOk,
-      cancelText: uiText.cancel,
-      okButtonProps: {
-        danger: action === "ROLLBACK",
-      },
-      onOk: async () => {
-        await handleAction(action);
-      },
-    });
+    setPendingAction(action);
+    setActionConfirmOpen(true);
+  };
+
+  const closeActionConfirm = () => {
+    if (submittingAction) {
+      return;
+    }
+    setActionConfirmOpen(false);
+    setPendingAction(undefined);
+  };
+
+  const handleConfirmSensitiveAction = async () => {
+    if (!pendingAction) {
+      return;
+    }
+    const succeeded = await handleAction(pendingAction);
+    if (succeeded) {
+      closeActionConfirm();
+    }
   };
 
   const handleDeleteInstance = async () => {
@@ -426,6 +438,19 @@ export function Dashboard() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={uiText.confirmActionTitle}
+        open={actionConfirmOpen}
+        onCancel={closeActionConfirm}
+        onOk={() => void handleConfirmSensitiveAction()}
+        okText={uiText.confirmActionOk}
+        cancelText={uiText.cancel}
+        confirmLoading={submittingAction}
+        okButtonProps={{ danger: pendingAction === "ROLLBACK" }}
+        destroyOnHidden
+      >
+        <Text>{`${uiText.confirmActionContentPrefix}${pendingAction ?? "-"} (${selectedInstance?.name ?? "-"})`}</Text>
       </Modal>
       <Modal
         title={uiText.deleteConfirmTitle}
