@@ -1,4 +1,11 @@
-import { AcceptedActionResponse, ClawInstance, InstanceActionType, ListResponse } from "@/types/contracts";
+import {
+  AcceptedActionResponse,
+  ClawInstance,
+  CreateInstanceRequest,
+  ImagePreset,
+  InstanceActionType,
+  ListResponse,
+} from "@/types/contracts";
 import { appConfig } from "@/config/app-config";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
@@ -21,6 +28,17 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function listInstances() {
   return requestJson<ListResponse<ClawInstance>>("/v1/instances");
+}
+
+export async function listImages() {
+  return requestJson<ListResponse<ImagePreset>>("/v1/images");
+}
+
+export async function createInstance(request: CreateInstanceRequest) {
+  return requestJson<ClawInstance>("/v1/instances", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function submitInstanceAction(instanceId: string, action: InstanceActionType) {
