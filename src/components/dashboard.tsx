@@ -1,6 +1,6 @@
 "use client";
 
-import { createInstance, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
+import { createInstance, deleteInstance, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
 import { appConfig } from "@/config/app-config";
 import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
@@ -36,6 +36,13 @@ const uiText = {
   stop: "\u505c\u6b62",
   restart: "\u91cd\u542f",
   rollback: "\u56de\u6eda",
+  delete: "\u5220\u9664",
+  deleteConfirmTitle: "\u5220\u9664\u5b9e\u4f8b",
+  deleteConfirmContentPrefix: "\u5220\u9664\u540e\u4e0d\u53ef\u6062\u590d\uff0c\u786e\u8ba4\u5220\u9664\uff1a",
+  deleteSuccessPrefix: "\u5b9e\u4f8b\u5df2\u5220\u9664\uff1a",
+  deleteFailed: "\u5220\u9664\u5b9e\u4f8b\u5931\u8d25",
+  instanceNotFound: "\u5b9e\u4f8b\u4e0d\u5b58\u5728\uff0c\u5df2\u5237\u65b0\u5217\u8868",
+  cancel: "\u53d6\u6d88",
   noInstances: "\u5f53\u524d\u6ca1\u6709\u53ef\u7ba1\u7406\u7684claw\u5b9e\u4f8b\u3002",
   createModalTitle: "\u521b\u5efa\u65b0\u5b9e\u4f8b",
   desiredStateRunning: "\u8fd0\u884c",
@@ -71,6 +78,7 @@ export function Dashboard() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
+  const [deletingInstance, setDeletingInstance] = useState(false);
   const [error, setError] = useState<string>();
 
   const selectedInstance = useMemo(
@@ -85,7 +93,13 @@ export function Dashboard() {
       const response = await listInstances();
       setInstances(response.items);
       if (response.items.length > 0) {
-        setSelectedInstanceId((current) => current ?? response.items[0].id);
+        setSelectedInstanceId((current) => {
+          if (!current) {
+            return response.items[0].id;
+          }
+          const exists = response.items.some((item) => item.id === current);
+          return exists ? current : response.items[0].id;
+        });
       } else {
         setSelectedInstanceId(undefined);
       }
@@ -177,6 +191,41 @@ export function Dashboard() {
     }
   };
 
+  const handleDeleteInstance = () => {
+    if (!selectedInstance) {
+      return;
+    }
+
+    const instanceName = selectedInstance.name;
+    const instanceId = selectedInstance.id;
+    Modal.confirm({
+      title: uiText.deleteConfirmTitle,
+      content: `${uiText.deleteConfirmContentPrefix}${instanceName}`,
+      okText: uiText.delete,
+      cancelText: uiText.cancel,
+      okButtonProps: {
+        danger: true,
+      },
+      onOk: async () => {
+        setDeletingInstance(true);
+        try {
+          await deleteInstance(instanceId);
+          await loadInstances();
+          messageApi.success(`${uiText.deleteSuccessPrefix}${instanceName}`);
+        } catch (apiError) {
+          if (apiError instanceof Error && apiError.message.includes("HTTP 404")) {
+            await loadInstances();
+            messageApi.warning(uiText.instanceNotFound);
+            return;
+          }
+          messageApi.error(apiError instanceof Error ? apiError.message : uiText.deleteFailed);
+        } finally {
+          setDeletingInstance(false);
+        }
+      },
+    });
+  };
+
   return (
     <>
       {messageContext}
@@ -243,18 +292,22 @@ export function Dashboard() {
                     <Button
                       type="primary"
                       loading={submittingAction}
+                      disabled={deletingInstance}
                       onClick={() => void handleAction("START")}
                     >
                       {uiText.start}
                     </Button>
-                    <Button loading={submittingAction} onClick={() => void handleAction("STOP")}>
+                    <Button loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("STOP")}>
                       {uiText.stop}
                     </Button>
-                    <Button loading={submittingAction} onClick={() => void handleAction("RESTART")}>
+                    <Button loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("RESTART")}>
                       {uiText.restart}
                     </Button>
-                    <Button danger loading={submittingAction} onClick={() => void handleAction("ROLLBACK")}>
+                    <Button danger loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("ROLLBACK")}>
                       {uiText.rollback}
+                    </Button>
+                    <Button danger loading={deletingInstance} disabled={submittingAction} onClick={handleDeleteInstance}>
+                      {uiText.delete}
                     </Button>
                   </Space>
                 </Space>
