@@ -76,6 +76,7 @@ export function Dashboard() {
   const [loadingInstances, setLoadingInstances] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingInstance, setDeletingInstance] = useState(false);
@@ -143,6 +144,20 @@ export function Dashboard() {
     createForm.resetFields();
   };
 
+  const openDeleteModal = () => {
+    if (!selectedInstance) {
+      return;
+    }
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingInstance) {
+      return;
+    }
+    setDeleteModalOpen(false);
+  };
+
   const handleCreateInstance = async () => {
     try {
       const values = await createForm.validateFields();
@@ -191,39 +206,30 @@ export function Dashboard() {
     }
   };
 
-  const handleDeleteInstance = () => {
+  const handleDeleteInstance = async () => {
     if (!selectedInstance) {
       return;
     }
 
     const instanceName = selectedInstance.name;
     const instanceId = selectedInstance.id;
-    Modal.confirm({
-      title: uiText.deleteConfirmTitle,
-      content: `${uiText.deleteConfirmContentPrefix}${instanceName}`,
-      okText: uiText.delete,
-      cancelText: uiText.cancel,
-      okButtonProps: {
-        danger: true,
-      },
-      onOk: async () => {
-        setDeletingInstance(true);
-        try {
-          await deleteInstance(instanceId);
-          await loadInstances();
-          messageApi.success(`${uiText.deleteSuccessPrefix}${instanceName}`);
-        } catch (apiError) {
-          if (apiError instanceof Error && apiError.message.includes("HTTP 404")) {
-            await loadInstances();
-            messageApi.warning(uiText.instanceNotFound);
-            return;
-          }
-          messageApi.error(apiError instanceof Error ? apiError.message : uiText.deleteFailed);
-        } finally {
-          setDeletingInstance(false);
-        }
-      },
-    });
+    setDeletingInstance(true);
+    try {
+      await deleteInstance(instanceId);
+      await loadInstances();
+      setDeleteModalOpen(false);
+      messageApi.success(`${uiText.deleteSuccessPrefix}${instanceName}`);
+    } catch (apiError) {
+      if (apiError instanceof Error && apiError.message.includes("HTTP 404")) {
+        await loadInstances();
+        setDeleteModalOpen(false);
+        messageApi.warning(uiText.instanceNotFound);
+        return;
+      }
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.deleteFailed);
+    } finally {
+      setDeletingInstance(false);
+    }
   };
 
   return (
@@ -306,7 +312,7 @@ export function Dashboard() {
                     <Button danger loading={submittingAction} disabled={deletingInstance} onClick={() => void handleAction("ROLLBACK")}>
                       {uiText.rollback}
                     </Button>
-                    <Button danger loading={deletingInstance} disabled={submittingAction} onClick={handleDeleteInstance}>
+                    <Button danger loading={deletingInstance} disabled={submittingAction} onClick={openDeleteModal}>
                       {uiText.delete}
                     </Button>
                   </Space>
@@ -378,6 +384,19 @@ export function Dashboard() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={uiText.deleteConfirmTitle}
+        open={deleteModalOpen}
+        onCancel={closeDeleteModal}
+        onOk={() => void handleDeleteInstance()}
+        okText={uiText.delete}
+        cancelText={uiText.cancel}
+        confirmLoading={deletingInstance}
+        okButtonProps={{ danger: true }}
+        destroyOnHidden
+      >
+        <Text>{`${uiText.deleteConfirmContentPrefix}${selectedInstance?.name ?? "-"}`}</Text>
       </Modal>
     </>
   );
