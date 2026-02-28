@@ -11,6 +11,7 @@ const withNextra = nextra({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  basePath: "/fun-claw",
 };
 
 export default withNextra(nextConfig);

@@ -27,29 +27,11 @@ Edit `controlApiBaseUrl`, for example:
 
 ```ts
 export const appConfig = {
-  controlApiBaseUrl: "http://127.0.0.1:8080",
+  controlApiBaseUrl: "/fun-claw-api",
 } as const;
 ```
 
 ## Routes
 
-- Dashboard: `http://localhost:3000/`
-- Docs portal (Nextra): `http://localhost:3000/docs`
-
-## Update Script
-
-Use `update-agent.sh` for one-command update on server:
-
-```bash
-chmod +x /opt/fun-ai-agent/update-agent.sh
-/opt/fun-ai-agent/update-agent.sh
-```
-
-Optional environment variables:
-
-- `APP_DIR` (default: `/opt/fun-ai-agent`)
-- `SERVICE_NAME` (default: `fun-ai-agent-web`)
-- `GIT_REMOTE` (default: `origin`)
-- `GIT_BRANCH` (default: `main`)
-- `HEALTH_URL` (default: `http://127.0.0.1:3000`)
-- `NPM_CMD` (default: `npm`)
+- Dashboard: `http://localhost:3000/fun-claw`
+- Docs portal (Nextra): `http://localhost:3000/fun-claw/docs`
