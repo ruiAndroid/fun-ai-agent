@@ -27,7 +27,7 @@ Edit `controlApiBaseUrl`, for example:
 
 ```ts
 export const appConfig = {
-  controlApiBaseUrl: "/fun-claw-api",
+  controlApiBaseUrl: "/fun-claw/api",
 } as const;
 ```
 
