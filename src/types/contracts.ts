@@ -8,6 +8,8 @@ export interface ClawInstance {
   name: string;
   hostId: string;
   image: string;
+  gatewayHostPort?: number | null;
+  gatewayUrl?: string | null;
   runtime: RuntimeType;
   status: InstanceStatus;
   desiredState: DesiredState;

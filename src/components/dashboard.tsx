@@ -22,6 +22,9 @@ const uiText = {
   refresh: "\u5237\u65b0",
   create: "\u65b0\u589e\u5b9e\u4f8b",
   image: "\u955c\u50cf",
+  gatewayHostPort: "\u7f51\u5173\u7aef\u53e3",
+  gatewayUrl: "\u8bbf\u95ee\u5730\u5740",
+  gatewayUrlUnavailable: "\u672a\u5206\u914d",
   instanceName: "\u5b9e\u4f8b\u540d",
   status: "\u72b6\u6001",
   desiredState: "\u671f\u671b\u72b6\u6001",
@@ -310,6 +313,11 @@ export function Dashboard() {
                   { title: uiText.instanceName, dataIndex: "name" },
                   { title: uiText.image, dataIndex: "image" },
                   {
+                    title: uiText.gatewayUrl,
+                    dataIndex: "gatewayUrl",
+                    render: (value: string | null | undefined) => value ?? uiText.gatewayUrlUnavailable,
+                  },
+                  {
                     title: uiText.status,
                     dataIndex: "status",
                     render: (value: ClawInstance["status"]) => <Tag color={statusColor(value)}>{value}</Tag>,
@@ -328,6 +336,12 @@ export function Dashboard() {
                     <Descriptions.Item label={uiText.instanceId}>{selectedInstance.id}</Descriptions.Item>
                     <Descriptions.Item label={uiText.hostId}>{selectedInstance.hostId}</Descriptions.Item>
                     <Descriptions.Item label={uiText.image}>{selectedInstance.image}</Descriptions.Item>
+                    <Descriptions.Item label={uiText.gatewayHostPort}>
+                      {selectedInstance.gatewayHostPort ?? uiText.gatewayUrlUnavailable}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={uiText.gatewayUrl} span={2}>
+                      {selectedInstance.gatewayUrl ?? uiText.gatewayUrlUnavailable}
+                    </Descriptions.Item>
                     <Descriptions.Item label={uiText.currentStatus}>
                       <Tag color={statusColor(selectedInstance.status)}>{selectedInstance.status}</Tag>
                     </Descriptions.Item>
