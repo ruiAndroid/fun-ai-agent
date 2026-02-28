@@ -42,6 +42,7 @@ const uiText = {
   desiredStateStopped: "\u505c\u6b62",
   noPresetImage: "\u5f53\u524d\u6ca1\u6709\u53ef\u9009\u9884\u7f6e\u955c\u50cf\uff0c\u8bf7\u5148\u5728API\u914d\u7f6e app.images.presets",
   requiredName: "\u8bf7\u8f93\u5165\u5b9e\u4f8b\u540d",
+  nameAlreadyExists: "\u5b9e\u4f8b\u540d\u5df2\u5b58\u5728\uff0c\u8bf7\u66f4\u6362",
   requiredImage: "\u8bf7\u9009\u62e9\u955c\u50cf",
   fixedHostTipPrefix: "\u5f53\u524d\u5bbf\u4e3b\u673aID\u5df2\u56fa\u5b9a\uff1a",
 } as const;
@@ -147,6 +148,11 @@ export function Dashboard() {
         apiError !== null &&
         "errorFields" in apiError;
       if (hasValidationError) {
+        return;
+      }
+      if (apiError instanceof Error && apiError.message.includes("HTTP 409")) {
+        createForm.setFields([{ name: "name", errors: [uiText.nameAlreadyExists] }]);
+        messageApi.error(uiText.nameAlreadyExists);
         return;
       }
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.createInstanceFailed);
@@ -271,7 +277,25 @@ export function Dashboard() {
           <Form.Item
             name="name"
             label={uiText.instanceName}
-            rules={[{ required: true, message: uiText.requiredName }]}
+            rules={[
+              { required: true, message: uiText.requiredName },
+              {
+                validator: (_, value) => {
+                  if (typeof value !== "string") {
+                    return Promise.resolve();
+                  }
+                  const normalized = value.trim().toLowerCase();
+                  if (!normalized) {
+                    return Promise.resolve();
+                  }
+                  const duplicated = instances.some((item) => item.name.trim().toLowerCase() === normalized);
+                  if (duplicated) {
+                    return Promise.reject(new Error(uiText.nameAlreadyExists));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
           >
             <Input placeholder="zeroclaw-instance-01" />
           </Form.Item>
