@@ -89,6 +89,13 @@ export function Dashboard() {
     () => instances.find((item) => item.id === selectedInstanceId),
     [instances, selectedInstanceId]
   );
+  const selectedStatus = selectedInstance?.status;
+  const actionBusy = submittingAction || deletingInstance;
+  const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
+  const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
+  const disableRestart = !selectedInstance || actionBusy || selectedStatus === "CREATING";
+  const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
+  const disableDelete = !selectedInstance || actionBusy;
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -320,21 +327,21 @@ export function Dashboard() {
                     <Button
                       type="primary"
                       loading={submittingAction}
-                      disabled={deletingInstance}
+                      disabled={disableStart}
                       onClick={() => void handleAction("START")}
                     >
                       {uiText.start}
                     </Button>
                     <Button
                       loading={submittingAction}
-                      disabled={deletingInstance}
+                      disabled={disableStop}
                       onClick={() => handleSensitiveAction("STOP")}
                     >
                       {uiText.stop}
                     </Button>
                     <Button
                       loading={submittingAction}
-                      disabled={deletingInstance}
+                      disabled={disableRestart}
                       onClick={() => handleSensitiveAction("RESTART")}
                     >
                       {uiText.restart}
@@ -342,12 +349,12 @@ export function Dashboard() {
                     <Button
                       danger
                       loading={submittingAction}
-                      disabled={deletingInstance}
+                      disabled={disableRollback}
                       onClick={() => handleSensitiveAction("ROLLBACK")}
                     >
                       {uiText.rollback}
                     </Button>
-                    <Button danger loading={deletingInstance} disabled={submittingAction} onClick={openDeleteModal}>
+                    <Button danger loading={deletingInstance} disabled={disableDelete} onClick={openDeleteModal}>
                       {uiText.delete}
                     </Button>
                   </Space>
