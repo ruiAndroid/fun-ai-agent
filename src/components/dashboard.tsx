@@ -113,6 +113,7 @@ export function Dashboard() {
   const [terminalCommand, setTerminalCommand] = useState("");
   const [terminalConnecting, setTerminalConnecting] = useState(false);
   const [terminalConnected, setTerminalConnected] = useState(false);
+  const terminalOutputRef = useRef<HTMLDivElement | null>(null);
 
   const selectedInstance = useMemo(
     () => instances.find((item) => item.id === selectedInstanceId),
@@ -127,6 +128,7 @@ export function Dashboard() {
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
+  const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -178,6 +180,14 @@ export function Dashboard() {
       terminalSocketRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const outputElement = terminalOutputRef.current;
+    if (!outputElement) {
+      return;
+    }
+    outputElement.scrollTop = outputElement.scrollHeight;
+  }, [terminalOutput]);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
@@ -420,9 +430,10 @@ export function Dashboard() {
     if (!terminalCommand.trim()) {
       return;
     }
+    appendTerminalOutput(`[you] ${terminalCommand}\n`);
     socket.send(`${terminalCommand}\n`);
     setTerminalCommand("");
-  }, [messageApi, terminalCommand]);
+  }, [appendTerminalOutput, messageApi, terminalCommand]);
 
   return (
     <>
@@ -641,12 +652,31 @@ export function Dashboard() {
             </Button>
           </Space>
           <Text>{uiText.terminalOutput}</Text>
-          <Input.TextArea
-            value={terminalOutput}
-            autoSize={{ minRows: 16, maxRows: 24 }}
-            readOnly
-            style={{ fontFamily: "monospace" }}
-          />
+          <div
+            ref={terminalOutputRef}
+            style={{
+              border: "1px solid #d9d9d9",
+              borderRadius: 6,
+              padding: 12,
+              height: 360,
+              overflowY: "auto",
+              background: "#fff",
+              fontFamily: "monospace",
+              fontSize: 13,
+            }}
+          >
+            {terminalRenderedLines.map((line, index) => {
+              const normalizedLine = line ?? "";
+              const isSystemLine = normalizedLine.startsWith("[system]");
+              const isUserLine = normalizedLine.startsWith("[you]");
+              const color = isUserLine ? "#1677ff" : isSystemLine ? "#8c8c8c" : "#111111";
+              return (
+                <div key={`${index}-${normalizedLine}`} style={{ whiteSpace: "pre-wrap", color }}>
+                  {normalizedLine}
+                </div>
+              );
+            })}
+          </div>
           <Space.Compact style={{ width: "100%" }}>
             <Input
               value={terminalCommand}
