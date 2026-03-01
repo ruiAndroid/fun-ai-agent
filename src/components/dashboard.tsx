@@ -608,6 +608,8 @@ export function Dashboard() {
         title={uiText.remoteConnectTitle}
         open={remoteModalOpen}
         onCancel={closeRemoteModal}
+        width="min(1100px, 96vw)"
+        styles={{ body: { maxHeight: "78vh", overflowY: "auto" } }}
         footer={[
           <Button key="cancel" onClick={closeRemoteModal}>
             {uiText.cancel}
@@ -641,7 +643,7 @@ export function Dashboard() {
           <Text>{uiText.terminalOutput}</Text>
           <Input.TextArea
             value={terminalOutput}
-            autoSize={{ minRows: 10, maxRows: 16 }}
+            autoSize={{ minRows: 16, maxRows: 24 }}
             readOnly
             style={{ fontFamily: "monospace" }}
           />
