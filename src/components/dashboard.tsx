@@ -7,7 +7,7 @@ import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Header, Content } = Layout;
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 
 const uiText = {
@@ -40,6 +40,14 @@ const uiText = {
   restart: "\u91cd\u542f",
   rollback: "\u56de\u6eda",
   delete: "\u5220\u9664",
+  remoteConnect: "\u8fdc\u7a0b\u8fde\u63a5",
+  remoteConnectTitle: "\u8fdc\u7a0b\u547d\u4ee4\u884c\u8fde\u63a5",
+  remoteConnectHint: "\u590d\u5236\u4e0b\u65b9\u547d\u4ee4\u540e\uff0c\u5728\u4f60\u7684\u7ec8\u7aef\u6267\u884c\u5373\u53ef\u8fdb\u5165\u5b9e\u4f8b\u3002",
+  remoteConnectUnavailable: "\u672a\u914d\u7f6e\u8fdc\u7a0b\u8fde\u63a5\u547d\u4ee4\u6a21\u677f",
+  remoteConnectCommand: "\u8fde\u63a5\u547d\u4ee4",
+  copyCommand: "\u590d\u5236\u547d\u4ee4",
+  copyCommandSuccess: "\u8fde\u63a5\u547d\u4ee4\u5df2\u590d\u5236",
+  copyCommandFailed: "\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236",
   confirmActionTitle: "\u786e\u8ba4\u64cd\u4f5c",
   confirmActionContentPrefix: "\u786e\u8ba4\u5bf9\u5b9e\u4f8b\u6267\u884c\u64cd\u4f5c\uff1a",
   confirmActionOk: "\u786e\u8ba4\u6267\u884c",
@@ -85,6 +93,7 @@ export function Dashboard() {
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<Exclude<InstanceActionType, "START">>();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingInstance, setDeletingInstance] = useState(false);
@@ -101,6 +110,8 @@ export function Dashboard() {
   const disableRestart = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
+  const disableRemoteConnect = !selectedInstance;
+  const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -171,6 +182,17 @@ export function Dashboard() {
       return;
     }
     setDeleteModalOpen(false);
+  };
+
+  const openRemoteModal = () => {
+    if (!selectedInstance) {
+      return;
+    }
+    setRemoteModalOpen(true);
+  };
+
+  const closeRemoteModal = () => {
+    setRemoteModalOpen(false);
   };
 
   const handleCreateInstance = async () => {
@@ -273,6 +295,19 @@ export function Dashboard() {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.deleteFailed);
     } finally {
       setDeletingInstance(false);
+    }
+  };
+
+  const copyRemoteConnectCommand = async () => {
+    if (!selectedRemoteConnectCommand) {
+      messageApi.warning(uiText.remoteConnectUnavailable);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(selectedRemoteConnectCommand);
+      messageApi.success(uiText.copyCommandSuccess);
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.copyCommandFailed);
     }
   };
 
@@ -383,6 +418,9 @@ export function Dashboard() {
                     <Button danger loading={deletingInstance} disabled={disableDelete} onClick={openDeleteModal}>
                       {uiText.delete}
                     </Button>
+                    <Button disabled={disableRemoteConnect} onClick={openRemoteModal}>
+                      {uiText.remoteConnect}
+                    </Button>
                   </Space>
                 </Space>
               ) : (
@@ -452,6 +490,33 @@ export function Dashboard() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={uiText.remoteConnectTitle}
+        open={remoteModalOpen}
+        onCancel={closeRemoteModal}
+        footer={[
+          <Button key="cancel" onClick={closeRemoteModal}>
+            {uiText.cancel}
+          </Button>,
+          <Button key="copy" type="primary" onClick={() => void copyRemoteConnectCommand()} disabled={!selectedRemoteConnectCommand}>
+            {uiText.copyCommand}
+          </Button>,
+        ]}
+        destroyOnHidden
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <Text type="secondary">{uiText.remoteConnectHint}</Text>
+          <Text strong>{`${uiText.instanceName}: ${selectedInstance?.name ?? "-"}`}</Text>
+          <Text strong>{uiText.remoteConnectCommand}</Text>
+          {selectedRemoteConnectCommand ? (
+            <Paragraph copyable={{ text: selectedRemoteConnectCommand }} style={{ marginBottom: 0 }}>
+              <Text code>{selectedRemoteConnectCommand}</Text>
+            </Paragraph>
+          ) : (
+            <Alert type="warning" showIcon message={uiText.remoteConnectUnavailable} />
+          )}
+        </Space>
       </Modal>
       <Modal
         title={uiText.confirmActionTitle}

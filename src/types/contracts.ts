@@ -10,6 +10,7 @@ export interface ClawInstance {
   image: string;
   gatewayHostPort?: number | null;
   gatewayUrl?: string | null;
+  remoteConnectCommand?: string | null;
   runtime: RuntimeType;
   status: InstanceStatus;
   desiredState: DesiredState;
