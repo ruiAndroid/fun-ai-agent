@@ -4,7 +4,7 @@ import { createInstance, deleteInstance, listImages, listInstances, submitInstan
 import { appConfig } from "@/config/app-config";
 import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -45,6 +45,16 @@ const uiText = {
   remoteConnectHint: "\u590d\u5236\u4e0b\u65b9\u547d\u4ee4\u540e\uff0c\u5728\u4f60\u7684\u7ec8\u7aef\u6267\u884c\u5373\u53ef\u8fdb\u5165\u5b9e\u4f8b\u3002",
   remoteConnectUnavailable: "\u672a\u914d\u7f6e\u8fdc\u7a0b\u8fde\u63a5\u547d\u4ee4\u6a21\u677f",
   remoteConnectCommand: "\u8fde\u63a5\u547d\u4ee4",
+  webTerminal: "Web\u7ec8\u7aef",
+  connectTerminal: "\u8fde\u63a5\u7ec8\u7aef",
+  disconnectTerminal: "\u65ad\u5f00\u7ec8\u7aef",
+  sendCommand: "\u53d1\u9001",
+  terminalInputPlaceholder: "\u8f93\u5165\u547d\u4ee4\uff0c\u56de\u8f66\u53ef\u53d1\u9001",
+  terminalNotRunning: "\u5b9e\u4f8b\u672a\u8fd0\u884c\uff0c\u65e0\u6cd5\u6253\u5f00Web\u7ec8\u7aef",
+  terminalConnectFailed: "Web\u7ec8\u7aef\u8fde\u63a5\u5931\u8d25",
+  terminalConnected: "Web\u7ec8\u7aef\u5df2\u8fde\u63a5",
+  terminalDisconnected: "Web\u7ec8\u7aef\u5df2\u65ad\u5f00",
+  terminalOutput: "\u7ec8\u7aef\u8f93\u51fa",
   copyCommand: "\u590d\u5236\u547d\u4ee4",
   copyCommandSuccess: "\u8fde\u63a5\u547d\u4ee4\u5df2\u590d\u5236",
   copyCommandFailed: "\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236",
@@ -98,6 +108,11 @@ export function Dashboard() {
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingInstance, setDeletingInstance] = useState(false);
   const [error, setError] = useState<string>();
+  const terminalSocketRef = useRef<WebSocket | null>(null);
+  const [terminalOutput, setTerminalOutput] = useState("");
+  const [terminalCommand, setTerminalCommand] = useState("");
+  const [terminalConnecting, setTerminalConnecting] = useState(false);
+  const [terminalConnected, setTerminalConnected] = useState(false);
 
   const selectedInstance = useMemo(
     () => instances.find((item) => item.id === selectedInstanceId),
@@ -157,6 +172,13 @@ export function Dashboard() {
     void loadInstances();
   }, [loadInstances]);
 
+  useEffect(() => {
+    return () => {
+      terminalSocketRef.current?.close();
+      terminalSocketRef.current = null;
+    };
+  }, []);
+
   const openCreateModal = () => {
     setCreateModalOpen(true);
     createForm.setFieldsValue({
@@ -192,6 +214,9 @@ export function Dashboard() {
   };
 
   const closeRemoteModal = () => {
+    disconnectTerminal();
+    setTerminalOutput("");
+    setTerminalCommand("");
     setRemoteModalOpen(false);
   };
 
@@ -310,6 +335,94 @@ export function Dashboard() {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.copyCommandFailed);
     }
   };
+
+  const appendTerminalOutput = useCallback((chunk: string) => {
+    setTerminalOutput((current) => {
+      const next = `${current}${chunk}`;
+      if (next.length <= 120000) {
+        return next;
+      }
+      return next.slice(next.length - 120000);
+    });
+  }, []);
+
+  const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
+    const apiBase = appConfig.controlApiBaseUrl;
+    const query = `instanceId=${encodeURIComponent(instanceId)}`;
+
+    if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+      const wsBase = apiBase.replace(/^http/i, "ws").replace(/\/$/, "");
+      return `${wsBase}/v1/terminal/ws?${query}`;
+    }
+
+    const normalizedApiBase = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${window.location.host}${normalizedApiBase}/v1/terminal/ws?${query}`;
+  }, []);
+
+  const disconnectTerminal = useCallback(() => {
+    const socket = terminalSocketRef.current;
+    terminalSocketRef.current = null;
+    if (socket) {
+      socket.close();
+    }
+    setTerminalConnecting(false);
+    setTerminalConnected(false);
+  }, []);
+
+  const connectTerminal = useCallback(() => {
+    if (!selectedInstance) {
+      return;
+    }
+    if (selectedInstance.status !== "RUNNING") {
+      messageApi.warning(uiText.terminalNotRunning);
+      return;
+    }
+
+    disconnectTerminal();
+    setTerminalOutput("");
+    setTerminalCommand("");
+    setTerminalConnecting(true);
+
+    const socket = new WebSocket(buildTerminalWebSocketUrl(selectedInstance.id));
+    terminalSocketRef.current = socket;
+
+    socket.onopen = () => {
+      setTerminalConnecting(false);
+      setTerminalConnected(true);
+      messageApi.success(uiText.terminalConnected);
+    };
+
+    socket.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        appendTerminalOutput(event.data);
+      }
+    };
+
+    socket.onerror = () => {
+      messageApi.error(uiText.terminalConnectFailed);
+    };
+
+    socket.onclose = () => {
+      terminalSocketRef.current = null;
+      setTerminalConnecting(false);
+      setTerminalConnected(false);
+      appendTerminalOutput(`[system] ${uiText.terminalDisconnected}\n`);
+    };
+  }, [appendTerminalOutput, buildTerminalWebSocketUrl, disconnectTerminal, messageApi, selectedInstance]);
+
+  const sendTerminalCommand = useCallback(() => {
+    const socket = terminalSocketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      messageApi.warning(uiText.terminalConnectFailed);
+      return;
+    }
+    if (!terminalCommand.trim()) {
+      return;
+    }
+    socket.send(`${terminalCommand}\n`);
+    setTerminalCommand("");
+  }, [messageApi, terminalCommand]);
 
   return (
     <>
@@ -516,6 +629,34 @@ export function Dashboard() {
           ) : (
             <Alert type="warning" showIcon message={uiText.remoteConnectUnavailable} />
           )}
+          <Text strong>{uiText.webTerminal}</Text>
+          <Space>
+            <Button type="primary" loading={terminalConnecting} disabled={terminalConnected} onClick={connectTerminal}>
+              {uiText.connectTerminal}
+            </Button>
+            <Button disabled={!terminalConnected} onClick={disconnectTerminal}>
+              {uiText.disconnectTerminal}
+            </Button>
+          </Space>
+          <Text>{uiText.terminalOutput}</Text>
+          <Input.TextArea
+            value={terminalOutput}
+            autoSize={{ minRows: 10, maxRows: 16 }}
+            readOnly
+            style={{ fontFamily: "monospace" }}
+          />
+          <Space.Compact style={{ width: "100%" }}>
+            <Input
+              value={terminalCommand}
+              onChange={(event) => setTerminalCommand(event.target.value)}
+              placeholder={uiText.terminalInputPlaceholder}
+              onPressEnter={() => sendTerminalCommand()}
+              disabled={!terminalConnected}
+            />
+            <Button type="primary" onClick={sendTerminalCommand} disabled={!terminalConnected || !terminalCommand.trim()}>
+              {uiText.sendCommand}
+            </Button>
+          </Space.Compact>
         </Space>
       </Modal>
       <Modal
