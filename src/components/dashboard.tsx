@@ -552,10 +552,10 @@ export function Dashboard() {
                     <Button danger loading={deletingInstance} disabled={disableDelete} onClick={openDeleteModal}>
                       {uiText.delete}
                     </Button>
-                    <Button disabled={disableRemoteConnect} onClick={openRemoteModal}>
+                    <Button type="primary" disabled={disableRemoteConnect} onClick={openRemoteModal}>
                       {uiText.remoteConnect}
                     </Button>
-                    <Button onClick={openVisualUi} disabled={!selectedGatewayUrl}>
+                    <Button type="primary" onClick={openVisualUi} disabled={!selectedGatewayUrl}>
                       {uiText.openVisualUi}
                     </Button>
                   </Space>
