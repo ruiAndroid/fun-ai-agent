@@ -48,6 +48,8 @@ const uiText = {
   webTerminal: "Web\u7ec8\u7aef",
   connectTerminal: "\u8fde\u63a5\u7ec8\u7aef",
   disconnectTerminal: "\u65ad\u5f00\u7ec8\u7aef",
+  openVisualUi: "UI\u53ef\u89c6\u5316\u64cd\u4f5c",
+  openVisualUiUnavailable: "\u5f53\u524d\u5b9e\u4f8b\u6682\u65e0\u53ef\u8bbf\u95ee\u5730\u5740",
   sendCommand: "\u53d1\u9001",
   terminalInputPlaceholder: "\u8f93\u5165\u547d\u4ee4\uff0c\u56de\u8f66\u53ef\u53d1\u9001",
   terminalNotRunning: "\u5b9e\u4f8b\u672a\u8fd0\u884c\uff0c\u65e0\u6cd5\u6253\u5f00Web\u7ec8\u7aef",
@@ -128,6 +130,7 @@ export function Dashboard() {
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
+  const selectedGatewayUrl = selectedInstance?.gatewayUrl?.trim();
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
 
   const loadInstances = useCallback(async () => {
@@ -435,6 +438,14 @@ export function Dashboard() {
     setTerminalCommand("");
   }, [appendTerminalOutput, messageApi, terminalCommand]);
 
+  const openVisualUi = useCallback(() => {
+    if (!selectedGatewayUrl) {
+      messageApi.warning(uiText.openVisualUiUnavailable);
+      return;
+    }
+    window.open(selectedGatewayUrl, "_blank", "noopener,noreferrer");
+  }, [messageApi, selectedGatewayUrl]);
+
   return (
     <>
       {messageContext}
@@ -649,6 +660,9 @@ export function Dashboard() {
             </Button>
             <Button disabled={!terminalConnected} onClick={disconnectTerminal}>
               {uiText.disconnectTerminal}
+            </Button>
+            <Button onClick={openVisualUi} disabled={!selectedGatewayUrl}>
+              {uiText.openVisualUi}
             </Button>
           </Space>
           <Text>{uiText.terminalOutput}</Text>
