@@ -440,11 +440,10 @@ export function Dashboard() {
 
   const openVisualUi = useCallback(() => {
     if (!selectedGatewayUrl) {
-      messageApi.warning(uiText.openVisualUiUnavailable);
       return;
     }
     window.open(selectedGatewayUrl, "_blank", "noopener,noreferrer");
-  }, [messageApi, selectedGatewayUrl]);
+  }, [selectedGatewayUrl]);
 
   return (
     <>
@@ -556,6 +555,9 @@ export function Dashboard() {
                     <Button disabled={disableRemoteConnect} onClick={openRemoteModal}>
                       {uiText.remoteConnect}
                     </Button>
+                    <Button onClick={openVisualUi} disabled={!selectedGatewayUrl}>
+                      {uiText.openVisualUi}
+                    </Button>
                   </Space>
                 </Space>
               ) : (
@@ -660,9 +662,6 @@ export function Dashboard() {
             </Button>
             <Button disabled={!terminalConnected} onClick={disconnectTerminal}>
               {uiText.disconnectTerminal}
-            </Button>
-            <Button onClick={openVisualUi} disabled={!selectedGatewayUrl}>
-              {uiText.openVisualUi}
             </Button>
           </Space>
           <Text>{uiText.terminalOutput}</Text>
