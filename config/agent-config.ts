@@ -29,6 +29,12 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     owner: "dreamworks",
     status: "ONLINE",
     description: "智能分镜 Agent（当前阶段未配置执行逻辑）。",
-    skills: [],
+    skills: [
+      {
+        id: "storyboard-episode-split",
+        name: "剧本智能分集",
+        prompt: "请基于输入剧本进行分集规划，输出每集主线、冲突、结尾悬念和场景拆分。",
+      },
+    ],
   },
 ];
