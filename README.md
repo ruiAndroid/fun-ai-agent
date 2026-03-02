@@ -1,6 +1,6 @@
 # fun-ai-agent
 
-Frontend console for managing and observing agent tasks.
+Frontend management console for agent catalog and skill policy configuration.
 
 ## Tech stack
 
@@ -23,7 +23,7 @@ Default API endpoint:
 
 ## Features
 
-- Create task from web UI
-- Stream task events with SSE
-- Show task queue status and live output
-- Cancel running task
+- Show available agents with status and ownership metadata
+- Visual configuration editor for each agent's skills
+- Save config to browser local storage and export JSON
+- Trigger API -> plane connectivity check from selected agent profile

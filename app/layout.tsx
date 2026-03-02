@@ -13,8 +13,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "fun-ai-agent console",
-  description: "Concurrent runtime management console for AI agents.",
+  title: "fun agent management platform",
+  description: "Visual console for agent catalog and skill policy configuration.",
 };
 
 export default function RootLayout({
