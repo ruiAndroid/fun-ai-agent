@@ -16,8 +16,19 @@ export type AgentConfig = {
 };
 
 // 大模型配置集中放这里，前端页面只读展示，不提供编辑入口。
-export const AGENT_MODEL_CONFIG: Record<string, string> = {};
+export const AGENT_MODEL_CONFIG: Record<string, string> = {
+  "dreamworks-storyboard": "qwen-max-latest",
+};
 
 // 默认不内置任何 Agent/Skill 假数据。
 // 请在接入后端接口后由服务端下发，或在本文件中按需手工配置真实数据。
-export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [];
+export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
+  {
+    id: "dreamworks-storyboard",
+    name: "梦工厂-智能分镜",
+    owner: "dreamworks",
+    status: "ONLINE",
+    description: "智能分镜 Agent（当前阶段未配置执行逻辑）。",
+    skills: [],
+  },
+];
