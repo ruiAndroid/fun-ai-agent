@@ -13,8 +13,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "fun agent management platform",
-  description: "Visual console for agent catalog and skill policy configuration.",
+  title: "Fun Agent 管理平台",
+  description: "Agent 列表与 Skill 提示词可视化配置控制台。",
 };
 
 export default function RootLayout({

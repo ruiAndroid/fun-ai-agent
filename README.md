@@ -1,6 +1,6 @@
 # fun-ai-agent
 
-Frontend management console for agent catalog and skill policy configuration.
+Fun Agent 管理前端，提供 Agent 列表展示与 Skill 提示词可视化配置。
 
 ## Tech stack
 
@@ -23,7 +23,7 @@ Default API endpoint:
 
 ## Features
 
-- Show available agents with status and ownership metadata
-- Visual configuration editor for each agent's skills
-- Save config to browser local storage and export JSON
-- Trigger API -> plane connectivity check from selected agent profile
+- 中文化管理界面，展示可用 Agent 列表
+- 大模型配置固定读取 `config/agent-config.ts`
+- Skill 区域仅允许编辑提示词
+- 支持本地保存提示词配置并发起 API -> plane 连通性检查
