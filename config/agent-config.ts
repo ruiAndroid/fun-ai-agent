@@ -1,9 +1,17 @@
 export type AgentStatus = "ONLINE" | "DEGRADED" | "OFFLINE";
 
-export type SkillPromptConfig = {
+export type SkillConfig = {
   id: string;
   name: string;
-  prompt: string;
+  promptTemplate: string;
+};
+
+export type WorkflowConfig = {
+  id: string;
+  name: string;
+  description: string;
+  skillId: string;
+  modelProfile: string;
 };
 
 export type AgentConfig = {
@@ -12,28 +20,71 @@ export type AgentConfig = {
   owner: string;
   status: AgentStatus;
   description: string;
-  skills: SkillPromptConfig[];
+  defaultWorkflowId: string;
+  workflows: WorkflowConfig[];
+  skills: SkillConfig[];
 };
 
-// 大模型配置集中放这里，前端页面只读展示，不提供编辑入口。
-export const AGENT_MODEL_CONFIG: Record<string, string> = {
-  "dreamworks-storyboard": "qwen-max-latest",
-};
-
-// 默认不内置任何 Agent/Skill 假数据。
-// 请在接入后端接口后由服务端下发，或在本文件中按需手工配置真实数据。
 export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
   {
     id: "dreamworks-storyboard",
-    name: "梦工厂-智能分镜",
+    name: "DreamWorks Storyboard",
     owner: "dreamworks",
     status: "ONLINE",
-    description: "智能分镜 Agent（当前阶段未配置执行逻辑）。",
+    description: "Storyboard agent with workflow-level model configuration.",
+    defaultWorkflowId: "episode-split",
+    workflows: [
+      {
+        id: "episode-split",
+        name: "Script To Episodes",
+        description: "Split screenplay into episode-level storyboard plan.",
+        skillId: "storyboard-episode-split",
+        modelProfile: "mock-default",
+      },
+      {
+        id: "extract-roles",
+        name: "Extract Episode Roles",
+        description: "Extract key character roles from screenplay text.",
+        skillId: "storyboard-extract-roles",
+        modelProfile: "openai-gpt-4o-mini",
+      },
+    ],
     skills: [
       {
         id: "storyboard-episode-split",
-        name: "剧本智能分集",
-        prompt: "请基于输入剧本进行分集规划，输出每集主线、冲突、结尾悬念和场景拆分。",
+        name: "Storyboard Episode Split",
+        promptTemplate:
+          "You are a professional storyboard planner. Split screenplay into episodes with hooks, conflict and cliffhangers.",
+      },
+      {
+        id: "storyboard-extract-roles",
+        name: "Storyboard Extract Roles",
+        promptTemplate:
+          "Extract the core roles from the screenplay. Return role names and short role summaries.",
+      },
+    ],
+  },
+  {
+    id: "default-agent",
+    name: "Default Agent",
+    owner: "plane",
+    status: "ONLINE",
+    description: "General-purpose fallback agent.",
+    defaultWorkflowId: "summarize",
+    workflows: [
+      {
+        id: "summarize",
+        name: "Summarize Text",
+        description: "Generic summarization workflow.",
+        skillId: "summarize-text",
+        modelProfile: "mock-default",
+      },
+    ],
+    skills: [
+      {
+        id: "summarize-text",
+        name: "Summarize Text",
+        promptTemplate: "You summarize user input into concise bullet points with clear structure.",
       },
     ],
   },

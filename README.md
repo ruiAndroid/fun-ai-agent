@@ -1,6 +1,6 @@
 # fun-ai-agent
 
-Fun Agent 管理前端，提供 Agent 列表展示与 Skill 提示词可视化配置。
+Frontend admin console for managing agent workflow config and skill prompt templates.
 
 ## Tech stack
 
@@ -21,9 +21,25 @@ Default API endpoint:
 - `NEXT_PUBLIC_API_BASE_URL=/fun-agents/api`
 - `NEXT_BASE_PATH=/fun-agents`
 
-## Features
+## Current capabilities
 
-- 中文化管理界面，展示可用 Agent 列表
-- 大模型配置固定读取 `config/agent-config.ts`
-- Skill 区域仅允许编辑提示词
-- 支持本地保存提示词配置并发起 API -> plane 连通性检查
+- Structure layer visualization: `Agent -> Workflows -> Skills`
+- Workflow-level model profile display and selection context
+- Skill prompt template editing with local persistence (`localStorage`)
+- Connectivity check request to plane using:
+  - `agent_id`
+  - `workflow_id`
+  - `skill_prompt_override`
+  - `prompt`
+
+## Config source
+
+Static config is defined in:
+
+- `config/agent-config.ts`
+
+This file includes:
+
+- Agent metadata
+- Workflow definitions (bind skill + model profile)
+- Skill prompt templates
