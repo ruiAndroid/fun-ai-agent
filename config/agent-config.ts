@@ -10,7 +10,6 @@ export type WorkflowConfig = {
   id: string;
   name: string;
   description: string;
-  skillId: string;
   modelProfile: string;
 };
 
@@ -38,14 +37,12 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
         id: "episode-split",
         name: "剧本智能分集",
         description: "将剧本拆分为分集级别的分镜规划结果。",
-        skillId: "storyboard-episode-split",
         modelProfile: "mock-default",
       },
       {
         id: "extract-roles",
         name: "提取分集角色",
         description: "从剧本文本中提取关键角色和候选角色信息。",
-        skillId: "storyboard-extract-roles",
         modelProfile: "openai-gpt-4o-mini",
       },
     ],

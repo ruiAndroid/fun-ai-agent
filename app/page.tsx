@@ -127,6 +127,7 @@ export default function Home() {
   const [agents, setAgents] = useState<AgentConfig[]>(() => deepCloneAgents(DEFAULT_AGENT_CONFIGS));
   const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_AGENT_CONFIGS[0]?.id ?? "");
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("");
+  const [selectedSkillId, setSelectedSkillId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [dirty, setDirty] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
@@ -165,22 +166,34 @@ export default function Home() {
     }
   }, [selectedAgent, selectedWorkflowId]);
 
+  useEffect(() => {
+    if (!selectedAgent) {
+      setSelectedSkillId("");
+      return;
+    }
+    const fallbackSkillId = selectedAgent.skills[0]?.id || "";
+    const skillExists = selectedAgent.skills.some((skill) => skill.id === selectedSkillId);
+    if (!skillExists) {
+      setSelectedSkillId(fallbackSkillId);
+    }
+  }, [selectedAgent, selectedSkillId]);
+
   const selectedWorkflow = useMemo(() => {
     if (!selectedAgent) return null;
     return selectedAgent.workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null;
   }, [selectedAgent, selectedWorkflowId]);
 
   const selectedSkill = useMemo(() => {
-    if (!selectedAgent || !selectedWorkflow) return null;
-    return selectedAgent.skills.find((skill) => skill.id === selectedWorkflow.skillId) ?? null;
-  }, [selectedAgent, selectedWorkflow]);
+    if (!selectedAgent) return null;
+    return selectedAgent.skills.find((skill) => skill.id === selectedSkillId) ?? null;
+  }, [selectedAgent, selectedSkillId]);
 
   const filteredAgents = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     if (!keyword) return agents;
     return agents.filter((agent) => {
       const workflowText = agent.workflows
-        .map((workflow) => `${workflow.id} ${workflow.name} ${workflow.modelProfile} ${workflow.skillId}`)
+        .map((workflow) => `${workflow.id} ${workflow.name} ${workflow.modelProfile}`)
         .join(" ");
       const skillText = agent.skills.map((skill) => `${skill.id} ${skill.name}`).join(" ");
       return [agent.id, agent.name, agent.owner, agent.description, workflowText, skillText]
@@ -391,7 +404,7 @@ export default function Home() {
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
               <CardTitle>工作流配置</CardTitle>
-              <CardDescription>每个工作流绑定一个模型与一个技能，可在此选择查看。</CardDescription>
+              <CardDescription>每个工作流仅绑定模型，技能可独立选择与编辑。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-2 md:grid-cols-2">
@@ -412,9 +425,7 @@ export default function Home() {
                       <p className="text-sm font-semibold">{workflow.name}</p>
                       <p className="font-mono text-[11px] text-muted-foreground">{workflow.id}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{workflow.description}</p>
-                      <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-                        技能={workflow.skillId} 模型={workflow.modelProfile}
-                      </p>
+                      <p className="mt-2 font-mono text-[11px] text-muted-foreground">模型={workflow.modelProfile}</p>
                     </button>
                   );
                 })}
@@ -422,7 +433,6 @@ export default function Home() {
               {selectedWorkflow ? (
                 <div className="rounded-xl border border-border/70 bg-background/50 p-3 text-sm">
                   <p><span className="text-muted-foreground">工作流 ID: </span>{selectedWorkflow.id}</p>
-                  <p><span className="text-muted-foreground">技能 ID: </span>{selectedWorkflow.skillId}</p>
                   <p><span className="text-muted-foreground">模型配置: </span><span className="font-mono">{selectedWorkflow.modelProfile}</span></p>
                 </div>
               ) : null}
@@ -435,6 +445,27 @@ export default function Home() {
               <CardDescription>支持可视化编辑技能提示词，执行任务时将覆盖默认模板。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="grid gap-2 md:grid-cols-2">
+                {selectedAgent.skills.map((skill) => {
+                  const active = selectedSkill?.id === skill.id;
+                  return (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      onClick={() => setSelectedSkillId(skill.id)}
+                      className={[
+                        "rounded-xl border p-3 text-left transition-colors",
+                        active
+                          ? "border-primary bg-primary/8 shadow-sm"
+                          : "border-border/70 bg-background/45 hover:border-primary/50",
+                      ].join(" ")}
+                    >
+                      <p className="text-sm font-semibold">{skill.name}</p>
+                      <p className="font-mono text-[11px] text-muted-foreground">{skill.id}</p>
+                    </button>
+                  );
+                })}
+              </div>
               {selectedSkill ? (
                 <div className="rounded-xl border border-border/70 bg-background/50 p-3">
                   <div className="mb-2">
@@ -449,7 +480,7 @@ export default function Home() {
                   />
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">请先选择一个工作流。</p>
+                <p className="text-sm text-muted-foreground">请先选择一个技能。</p>
               )}
             </CardContent>
           </Card>
