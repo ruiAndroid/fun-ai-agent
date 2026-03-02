@@ -431,7 +431,7 @@ export default function Home() {
 
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>技能提示词模板</CardTitle>
+              <CardTitle>技能提示词</CardTitle>
               <CardDescription>支持可视化编辑技能提示词，执行任务时将覆盖默认模板。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

@@ -1,14 +1,14 @@
 # fun-ai-agent
 
-Frontend admin console for managing agent workflow config and skill prompt templates.
+用于管理智能体工作流配置与技能提示词模板的前端控制台。
 
-## Tech stack
+## 技术栈
 
-- Next.js (App Router)
+- Next.js（App Router）
 - TypeScript
 - Tailwind CSS + shadcn/ui
 
-## Run locally
+## 本地运行
 
 ```bash
 npm install
@@ -16,30 +16,30 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Default API endpoint:
+默认接口配置：
 
 - `NEXT_PUBLIC_API_BASE_URL=/fun-agents/api`
 - `NEXT_BASE_PATH=/fun-agents`
 
-## Current capabilities
+## 当前能力
 
-- Structure layer visualization: `Agent -> Workflows -> Skills`
-- Workflow-level model profile display and selection context
-- Skill prompt template editing with local persistence (`localStorage`)
-- Connectivity check request to plane using:
+- 结构层可视化：`智能体 -> 工作流 -> 技能`
+- 工作流级模型配置展示与选择
+- 技能提示词模板可视化编辑（本地存储）
+- 从前端发起到 plane 的连通性检查请求，包含：
   - `agent_id`
   - `workflow_id`
   - `skill_prompt_override`
   - `prompt`
 
-## Config source
+## 配置来源
 
-Static config is defined in:
+静态配置定义在：
 
 - `config/agent-config.ts`
 
-This file includes:
+文件包含：
 
-- Agent metadata
-- Workflow definitions (bind skill + model profile)
-- Skill prompt templates
+- 智能体元数据
+- 工作流定义（绑定技能与模型）
+- 技能提示词模板
