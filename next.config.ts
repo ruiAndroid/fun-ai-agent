@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+const basePath = process.env.NEXT_BASE_PATH ?? "/fun-agents";
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  basePath,
 };
 
 export default nextConfig;

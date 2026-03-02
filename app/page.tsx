@@ -35,7 +35,7 @@ type LogItem = {
   at: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/fun-agents/api").replace(/\/$/, "");
 const TERMINAL_STATUS: TaskStatus[] = ["SUCCEEDED", "FAILED", "CANCELED"];
 
 function asTaskView(payload: Record<string, unknown>): TaskView | null {
@@ -104,7 +104,7 @@ export default function Home() {
 
   const openStream = (taskId: string) => {
     closeStream();
-    const eventSource = new EventSource(`${API_BASE_URL}/api/v1/tasks/${taskId}/events`);
+    const eventSource = new EventSource(`${API_BASE_URL}/v1/tasks/${taskId}/events`);
     eventSourceRef.current = eventSource;
     setStreamActive(true);
     pushLog("stream", "SSE stream connected");
@@ -149,7 +149,7 @@ export default function Home() {
     setOutput("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tasks`, {
+      const response = await fetch(`${API_BASE_URL}/v1/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,7 +181,7 @@ export default function Home() {
     if (!currentTask) return;
     setErrorMessage(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${currentTask.task_id}/cancel`, {
+      const response = await fetch(`${API_BASE_URL}/v1/tasks/${currentTask.task_id}/cancel`, {
         method: "POST",
       });
       const payload = (await response.json()) as TaskView | { detail?: string };
@@ -293,7 +293,7 @@ export default function Home() {
         <Card className="border-border/80 bg-card/85 backdrop-blur">
           <CardHeader>
             <CardTitle>事件流日志</CardTitle>
-            <CardDescription>来自 /api/v1/tasks/&lt;task_id&gt;/events 的 SSE 数据。</CardDescription>
+            <CardDescription>来自 /v1/tasks/&lt;task_id&gt;/events 的 SSE 数据。</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-72 overflow-auto rounded-xl border border-border/70 bg-background/60 p-3">

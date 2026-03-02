@@ -18,7 +18,8 @@ npm run dev
 
 Default API endpoint:
 
-- `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080`
+- `NEXT_PUBLIC_API_BASE_URL=/fun-agents/api`
+- `NEXT_BASE_PATH=/fun-agents`
 
 ## Features
 
@@ -26,4 +27,3 @@ Default API endpoint:
 - Stream task events with SSE
 - Show task queue status and live output
 - Cancel running task
-
