@@ -28,23 +28,23 @@ export type AgentConfig = {
 export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
   {
     id: "dreamworks-storyboard",
-    name: "DreamWorks Storyboard",
+    name: "梦工厂-智能分镜",
     owner: "dreamworks",
     status: "ONLINE",
-    description: "Storyboard agent with workflow-level model configuration.",
+    description: "支持按工作流选择模型并按技能维护提示词的智能分镜智能体。",
     defaultWorkflowId: "episode-split",
     workflows: [
       {
         id: "episode-split",
-        name: "Script To Episodes",
-        description: "Split screenplay into episode-level storyboard plan.",
+        name: "剧本智能分集",
+        description: "将剧本拆分为分集级别的分镜规划结果。",
         skillId: "storyboard-episode-split",
         modelProfile: "mock-default",
       },
       {
         id: "extract-roles",
-        name: "Extract Episode Roles",
-        description: "Extract key character roles from screenplay text.",
+        name: "提取分集角色",
+        description: "从剧本文本中提取关键角色和候选角色信息。",
         skillId: "storyboard-extract-roles",
         modelProfile: "openai-gpt-4o-mini",
       },
@@ -52,39 +52,15 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     skills: [
       {
         id: "storyboard-episode-split",
-        name: "Storyboard Episode Split",
+        name: "分镜-剧本分集",
         promptTemplate:
-          "You are a professional storyboard planner. Split screenplay into episodes with hooks, conflict and cliffhangers.",
+          "你是一名专业分镜策划，请把剧本拆分为多集，并给出每集开场钩子、核心冲突、结尾悬念与场景分配。",
       },
       {
         id: "storyboard-extract-roles",
-        name: "Storyboard Extract Roles",
+        name: "分镜-角色提取",
         promptTemplate:
-          "Extract the core roles from the screenplay. Return role names and short role summaries.",
-      },
-    ],
-  },
-  {
-    id: "default-agent",
-    name: "Default Agent",
-    owner: "plane",
-    status: "ONLINE",
-    description: "General-purpose fallback agent.",
-    defaultWorkflowId: "summarize",
-    workflows: [
-      {
-        id: "summarize",
-        name: "Summarize Text",
-        description: "Generic summarization workflow.",
-        skillId: "summarize-text",
-        modelProfile: "mock-default",
-      },
-    ],
-    skills: [
-      {
-        id: "summarize-text",
-        name: "Summarize Text",
-        promptTemplate: "You summarize user input into concise bullet points with clear structure.",
+          "请从剧本中提取核心角色，输出角色名称与简短角色定位描述。",
       },
     ],
   },

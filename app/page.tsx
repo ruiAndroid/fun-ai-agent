@@ -117,9 +117,9 @@ function badgeVariantByStatus(status: AgentStatus): "default" | "secondary" | "d
 }
 
 function statusText(status: AgentStatus): string {
-  if (status === "ONLINE") return "ONLINE";
-  if (status === "DEGRADED") return "DEGRADED";
-  if (status === "OFFLINE") return "OFFLINE";
+  if (status === "ONLINE") return "在线";
+  if (status === "DEGRADED") return "降级";
+  if (status === "OFFLINE") return "离线";
   return status;
 }
 
@@ -216,7 +216,7 @@ export default function Home() {
   const saveToLocal = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStoragePayload(agents)));
     setDirty(false);
-    setBanner("Saved skill prompt templates to local storage.");
+    setBanner("已保存技能提示词到本地存储。");
   };
 
   const resetSelectedAgent = () => {
@@ -234,7 +234,7 @@ export default function Home() {
       ),
     );
     setDirty(true);
-    setBanner("Reset current agent workflow and skill prompt settings.");
+    setBanner("已恢复当前智能体的工作流和技能提示词默认值。");
   };
 
   const verifyPipeline = async () => {
@@ -243,11 +243,11 @@ export default function Home() {
     setCheckMessage(null);
 
     const prompt = [
-      "Run connectivity check for workflow execution.",
-      `Agent: ${selectedAgent.id}`,
-      `Workflow: ${selectedWorkflow.id}`,
-      `Skill: ${selectedSkill.id}`,
-      "Input: INT. CLASSROOM - DAY. A teacher asks students to design a short adventure storyboard.",
+      "执行链路连通性检查。",
+      `智能体: ${selectedAgent.id}`,
+      `工作流: ${selectedWorkflow.id}`,
+      `技能: ${selectedSkill.id}`,
+      "输入: INT. 教室 - 白天。一位老师让学生设计短篇冒险分镜。",
     ].join("\n");
 
     try {
@@ -266,11 +266,11 @@ export default function Home() {
 
       const payload = (await response.json().catch(() => ({}))) as TaskCreateResponse;
       if (!response.ok) {
-        throw new Error(payload.detail ?? `Request failed: ${response.status}`);
+        throw new Error(payload.detail ?? `请求失败: ${response.status}`);
       }
-      setCheckMessage(payload.task_id ? `Task created: ${payload.task_id}` : "Connectivity check passed.");
+      setCheckMessage(payload.task_id ? `任务已创建: ${payload.task_id}` : "连通性检查通过。");
     } catch (error) {
-      setCheckMessage(error instanceof Error ? `Connectivity check failed: ${error.message}` : "Connectivity check failed.");
+      setCheckMessage(error instanceof Error ? `连通性检查失败: ${error.message}` : "连通性检查失败。");
     } finally {
       setChecking(false);
     }
@@ -281,8 +281,8 @@ export default function Home() {
       <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-8">
         <Card>
           <CardHeader>
-            <CardTitle>No Agent Found</CardTitle>
-            <CardDescription>Check `config/agent-config.ts` to provide at least one agent.</CardDescription>
+            <CardTitle>未找到可用智能体</CardTitle>
+            <CardDescription>请检查 `config/agent-config.ts` 是否配置了至少一个智能体。</CardDescription>
           </CardHeader>
         </Card>
       </main>
@@ -294,17 +294,17 @@ export default function Home() {
       <section className="panel-enter mb-6 rounded-3xl border border-border/70 bg-card/85 p-6 shadow-lg backdrop-blur md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
-            <Badge className="bg-primary text-primary-foreground">Fun Agent Admin</Badge>
-            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">Agent Workflow Console</h1>
+            <Badge className="bg-primary text-primary-foreground">Fun Agent 管理台</Badge>
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">智能体工作流控制台</h1>
             <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
-              Structure layer: Agent - Workflows - Skills. Config layer: workflow model profile. Capability layer: skill prompt template.
+              结构层: 智能体 - 工作流 - 技能。可配层: 工作流模型。能力层: 技能提示词模板。
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 font-mono text-xs md:text-sm">
-            <Badge variant="outline">API: {API_BASE_URL}</Badge>
-            <Badge variant="outline">Online Agents: {onlineCount}</Badge>
-            <Badge variant="outline">Workflows: {totalWorkflowCount}</Badge>
-            <Badge variant="outline">Skills: {totalSkillCount}</Badge>
+            <Badge variant="outline">接口: {API_BASE_URL}</Badge>
+            <Badge variant="outline">在线智能体: {onlineCount}</Badge>
+            <Badge variant="outline">工作流数: {totalWorkflowCount}</Badge>
+            <Badge variant="outline">技能数: {totalSkillCount}</Badge>
           </div>
         </div>
       </section>
@@ -316,12 +316,12 @@ export default function Home() {
       <section className="grid gap-5 lg:grid-cols-[340px_1fr]">
         <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
           <CardHeader>
-            <CardTitle>Agents</CardTitle>
-            <CardDescription>Select an agent to configure workflows and skill prompts.</CardDescription>
+            <CardTitle>智能体列表</CardTitle>
+            <CardDescription>选择一个智能体进行工作流与技能提示词配置。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Input
-              placeholder="Search by id, owner, workflow, model..."
+              placeholder="按 ID、团队、工作流、模型搜索"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -357,7 +357,7 @@ export default function Home() {
               })}
               {filteredAgents.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border/70 p-3 text-xs text-muted-foreground">
-                  No matching agents.
+                  没有匹配的智能体。
                 </p>
               ) : null}
             </div>
@@ -367,31 +367,31 @@ export default function Home() {
         <div className="space-y-5">
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>Agent Overview</CardTitle>
-              <CardDescription>Agent prompt remains non-configurable. Only workflow and skill-level settings are editable.</CardDescription>
+              <CardTitle>智能体概览</CardTitle>
+              <CardDescription>智能体级提示词不可配置，仅支持工作流模型和技能提示词配置。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="grid gap-3 rounded-xl border border-border/70 bg-background/50 p-3 md:grid-cols-2">
-                <p><span className="text-muted-foreground">Agent ID: </span>{selectedAgent.id}</p>
-                <p><span className="text-muted-foreground">Name: </span>{selectedAgent.name}</p>
-                <p><span className="text-muted-foreground">Owner: </span>{selectedAgent.owner}</p>
-                <p><span className="text-muted-foreground">Status: </span>{statusText(selectedAgent.status)}</p>
-                <p><span className="text-muted-foreground">Default Workflow: </span>{selectedAgent.defaultWorkflowId}</p>
-                <p><span className="text-muted-foreground">Workflow Count: </span>{selectedAgent.workflows.length}</p>
-                <p className="md:col-span-2"><span className="text-muted-foreground">Description: </span>{selectedAgent.description}</p>
+                <p><span className="text-muted-foreground">智能体 ID: </span>{selectedAgent.id}</p>
+                <p><span className="text-muted-foreground">名称: </span>{selectedAgent.name}</p>
+                <p><span className="text-muted-foreground">团队: </span>{selectedAgent.owner}</p>
+                <p><span className="text-muted-foreground">状态: </span>{statusText(selectedAgent.status)}</p>
+                <p><span className="text-muted-foreground">默认工作流: </span>{selectedAgent.defaultWorkflowId}</p>
+                <p><span className="text-muted-foreground">工作流数量: </span>{selectedAgent.workflows.length}</p>
+                <p className="md:col-span-2"><span className="text-muted-foreground">描述: </span>{selectedAgent.description}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={saveToLocal}>Save Skill Prompts</Button>
-                <Button type="button" variant="outline" onClick={resetSelectedAgent}>Reset Current Agent</Button>
+                <Button type="button" onClick={saveToLocal}>保存技能提示词</Button>
+                <Button type="button" variant="outline" onClick={resetSelectedAgent}>恢复当前智能体默认值</Button>
               </div>
-              <p className="text-xs text-muted-foreground">{dirty ? "You have unsaved changes." : "All changes are saved locally."}</p>
+              <p className="text-xs text-muted-foreground">{dirty ? "当前有未保存修改。" : "当前配置已保存到本地。"}</p>
             </CardContent>
           </Card>
 
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>Workflows</CardTitle>
-              <CardDescription>Workflow-level model profile is configurable. Select one workflow to inspect its bound skill.</CardDescription>
+              <CardTitle>工作流配置</CardTitle>
+              <CardDescription>每个工作流绑定一个模型与一个技能，可在此选择查看。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-2 md:grid-cols-2">
@@ -413,7 +413,7 @@ export default function Home() {
                       <p className="font-mono text-[11px] text-muted-foreground">{workflow.id}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{workflow.description}</p>
                       <p className="mt-2 font-mono text-[11px] text-muted-foreground">
-                        skill={workflow.skillId} model={workflow.modelProfile}
+                        技能={workflow.skillId} 模型={workflow.modelProfile}
                       </p>
                     </button>
                   );
@@ -421,9 +421,9 @@ export default function Home() {
               </div>
               {selectedWorkflow ? (
                 <div className="rounded-xl border border-border/70 bg-background/50 p-3 text-sm">
-                  <p><span className="text-muted-foreground">Workflow ID: </span>{selectedWorkflow.id}</p>
-                  <p><span className="text-muted-foreground">Skill ID: </span>{selectedWorkflow.skillId}</p>
-                  <p><span className="text-muted-foreground">Model Profile: </span><span className="font-mono">{selectedWorkflow.modelProfile}</span></p>
+                  <p><span className="text-muted-foreground">工作流 ID: </span>{selectedWorkflow.id}</p>
+                  <p><span className="text-muted-foreground">技能 ID: </span>{selectedWorkflow.skillId}</p>
+                  <p><span className="text-muted-foreground">模型配置: </span><span className="font-mono">{selectedWorkflow.modelProfile}</span></p>
                 </div>
               ) : null}
             </CardContent>
@@ -431,8 +431,8 @@ export default function Home() {
 
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>Skill Prompt Template</CardTitle>
-              <CardDescription>Skill prompt is configurable and can be overridden per task.</CardDescription>
+              <CardTitle>技能提示词模板</CardTitle>
+              <CardDescription>支持可视化编辑技能提示词，执行任务时将覆盖默认模板。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {selectedSkill ? (
@@ -445,24 +445,24 @@ export default function Home() {
                     rows={4}
                     value={selectedSkill.promptTemplate}
                     onChange={(event) => updateSkillPrompt(selectedSkill.id, event.target.value)}
-                    placeholder="Enter skill prompt template..."
+                    placeholder="请输入技能提示词模板"
                   />
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Select a workflow first.</p>
+                <p className="text-sm text-muted-foreground">请先选择一个工作流。</p>
               )}
             </CardContent>
           </Card>
 
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>Connectivity Check</CardTitle>
-              <CardDescription>Create a plane task with selected agent/workflow and current skill prompt override.</CardDescription>
+              <CardTitle>链路连通性检查</CardTitle>
+              <CardDescription>使用当前智能体、工作流和技能提示词，向 plane 发起一条测试任务。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" onClick={verifyPipeline} disabled={checking || !selectedWorkflow || !selectedSkill}>
-                  {checking ? "Running..." : "Run Check"}
+                  {checking ? "执行中..." : "执行连通性检查"}
                 </Button>
                 {checkMessage ? <p className="text-sm text-muted-foreground">{checkMessage}</p> : null}
               </div>
@@ -470,11 +470,11 @@ export default function Home() {
               <pre className="max-h-72 overflow-auto rounded-xl border border-border/70 bg-background/60 p-3 font-mono text-xs">
                 {JSON.stringify(
                   {
-                    agent: selectedAgent.id,
-                    workflow: selectedWorkflow?.id ?? null,
-                    skill: selectedSkill?.id ?? null,
-                    model: selectedWorkflow?.modelProfile ?? null,
-                    skillPromptTemplate: selectedSkill?.promptTemplate ?? null,
+                    智能体: selectedAgent.id,
+                    工作流: selectedWorkflow?.id ?? null,
+                    技能: selectedSkill?.id ?? null,
+                    模型: selectedWorkflow?.modelProfile ?? null,
+                    技能提示词模板: selectedSkill?.promptTemplate ?? null,
                   },
                   null,
                   2,
