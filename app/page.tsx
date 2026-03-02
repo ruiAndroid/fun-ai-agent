@@ -258,7 +258,7 @@ export default function Home() {
           <div className="space-y-2">
             <Badge className="bg-primary text-primary-foreground">Fun Agent 管理平台</Badge>
             <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">
-              Agent 与 Skill 提示词可视化管理
+              Fun Agent
             </h1>
             <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
               大模型配置来自独立 config 文件；页面仅支持维护 Skill 提示词。
