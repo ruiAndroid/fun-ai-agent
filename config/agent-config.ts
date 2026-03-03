@@ -87,7 +87,7 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
         id: "novel-intake-parse",
         name: "小说输入解析",
         promptTemplate:
-          "你是小说转剧本任务的输入解析器。请读取 JSON 输入中的 novel_content、target_audience、expected_episode_count，并输出结构化的标准化摘要，供后续步骤使用。",
+          "你是小说转剧本任务的输入解析器。请读取 JSON 输入中的 novel_content、novel_type、target_audience、expected_episode_count，并输出结构化的标准化摘要，供后续步骤使用。",
       },
       {
         id: "novel-story-synopsis-generate",

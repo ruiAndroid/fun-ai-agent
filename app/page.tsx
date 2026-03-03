@@ -188,6 +188,7 @@ export default function Home() {
 
   const [scriptInput, setScriptInput] = useState("");
   const [novelContent, setNovelContent] = useState("");
+  const [novelType, setNovelType] = useState("");
   const [novelAudience, setNovelAudience] = useState("");
   const [novelExpectedEpisodes, setNovelExpectedEpisodes] = useState("");
   const [runTaskId, setRunTaskId] = useState<string | null>(null);
@@ -684,10 +685,15 @@ export default function Home() {
 
     if (isNovelToScriptAgent) {
       const content = novelContent.trim();
+      const type = novelType.trim();
       const audience = novelAudience.trim();
       const episodesRaw = novelExpectedEpisodes.trim();
       if (!content) {
         setRunError("请输入小说内容。");
+        return;
+      }
+      if (!type) {
+        setRunError("请输入小说类型。");
         return;
       }
       if (!audience) {
@@ -708,6 +714,7 @@ export default function Home() {
       prompt = content;
       inputPayload = {
         novel_content: content,
+        novel_type: type,
         target_audience: audience,
         expected_episode_count: episodes,
       };
@@ -984,7 +991,7 @@ export default function Home() {
               <CardTitle>{selectedAgent.name}测试入口</CardTitle>
               <CardDescription>
                 {isNovelToScriptAgent
-                  ? "输入小说内容、受众和期望集数，前端将以 JSON 传递给智能体。"
+                  ? "输入小说内容、类型、受众和期望集数，前端将以 JSON 传递给智能体。"
                   : "输入测试数据后启动智能体，流式查看步骤过程日志与输出结果。"}
               </CardDescription>
             </CardHeader>
@@ -996,6 +1003,11 @@ export default function Home() {
                     value={novelContent}
                     onChange={(event) => setNovelContent(event.target.value)}
                     placeholder="小说内容"
+                  />
+                  <Input
+                    value={novelType}
+                    onChange={(event) => setNovelType(event.target.value)}
+                    placeholder="小说类型（例如：都市、悬疑、古装、科幻）"
                   />
                   <Input
                     value={novelAudience}
