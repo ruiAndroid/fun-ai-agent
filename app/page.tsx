@@ -55,6 +55,10 @@ function deepCloneAgents(source: AgentConfig[]): AgentConfig[] {
   }));
 }
 
+function hasConfigDiff(current: AgentConfig[], baseline: AgentConfig[]): boolean {
+  return JSON.stringify(current) !== JSON.stringify(baseline);
+}
+
 function normalizeStatus(value: unknown): AgentStatus {
   const status = asString(value)?.toUpperCase();
   if (status === "ONLINE" || status === "DEGRADED" || status === "OFFLINE") {
@@ -444,12 +448,55 @@ export default function Home() {
   };
 
   const saveCurrentSkill = async () => {
-    if (!selectedSkill) return;
-    const skillId = selectedSkill.id;
-    const skillName = selectedSkill.name;
-    await persistConfigs(`已保存 Skill「${skillName}」到数据库。`, () => {
-      setSavedSkillId(skillId);
-    });
+    if (!selectedAgent || !selectedSkill || savingConfig) return;
+    setSavingConfig(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/v1/config/agents/${encodeURIComponent(selectedAgent.id)}/skills/${encodeURIComponent(selectedSkill.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: selectedSkill.name,
+            promptTemplate: selectedSkill.promptTemplate,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        const message =
+          asString(payload.detail) ?? asString(payload.error) ?? `保存 Skill 失败: ${response.status}`;
+        throw new Error(message);
+      }
+
+      const nextBaseline = deepCloneAgents(
+        baselineAgentsRef.current.map((agent) =>
+          agent.id === selectedAgent.id
+            ? {
+                ...agent,
+                skills: agent.skills.map((skill) =>
+                  skill.id === selectedSkill.id
+                    ? {
+                        ...skill,
+                        name: selectedSkill.name,
+                        promptTemplate: selectedSkill.promptTemplate,
+                      }
+                    : skill,
+                ),
+              }
+            : agent,
+        ),
+      );
+      baselineAgentsRef.current = nextBaseline;
+      setSavedSkillId(selectedSkill.id);
+      setDirty(hasConfigDiff(agents, nextBaseline));
+      setBanner(`已保存 Skill「${selectedSkill.name}」到数据库。`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "保存 Skill 到数据库失败。";
+      setBanner(message);
+    } finally {
+      setSavingConfig(false);
+    }
   };
 
   const resetSelectedAgent = () => {
