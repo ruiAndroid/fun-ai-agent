@@ -4,6 +4,7 @@ export type SkillConfig = {
   id: string;
   name: string;
   promptTemplate: string;
+  promptVariants?: Record<string, string>;
 };
 
 export type WorkflowConfig = {

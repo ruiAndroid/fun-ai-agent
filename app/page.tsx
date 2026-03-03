@@ -27,6 +27,9 @@ type ConfigAgentsResponse = {
   error?: string;
 };
 
+const DEFAULT_VARIANT_KEY = "__default__";
+const VARIANT_KEY_PATTERN = /^[a-z0-9_]+$/;
+
 type ModelsResponse = {
   data?: unknown;
   success?: boolean;
@@ -108,15 +111,26 @@ function normalizeAgentConfigs(raw: unknown): AgentConfig[] {
 
     const skillsRaw = Array.isArray(entry.skills) ? entry.skills : [];
     const skills = skillsRaw
-      .map((skill) => {
+      .map<AgentConfig["skills"][number] | null>((skill) => {
         if (!skill || typeof skill !== "object") return null;
         const row = skill as Record<string, unknown>;
         const skillId = asString(row.id)?.trim();
         if (!skillId) return null;
+        const promptVariantsRaw = row.promptVariants;
+        const promptVariants: Record<string, string> = {};
+        if (promptVariantsRaw && typeof promptVariantsRaw === "object") {
+          Object.entries(promptVariantsRaw as Record<string, unknown>).forEach(([key, value]) => {
+            const normalizedKey = key.trim();
+            const normalizedPrompt = asString(value)?.trim() ?? "";
+            if (!normalizedKey || !normalizedPrompt) return;
+            promptVariants[normalizedKey] = normalizedPrompt;
+          });
+        }
         return {
           id: skillId,
           name: asString(row.name)?.trim() || skillId,
           promptTemplate: asString(row.promptTemplate)?.trim() || "",
+          promptVariants,
         };
       })
       .filter((skill): skill is AgentConfig["skills"][number] => skill !== null);
@@ -221,10 +235,13 @@ export default function Home() {
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("");
   const [selectedSkillId, setSelectedSkillId] = useState<string>("");
+  const [selectedVariantKey, setSelectedVariantKey] = useState<string>(DEFAULT_VARIANT_KEY);
+  const [newVariantKey, setNewVariantKey] = useState("");
+  const [customVariantKeysByAgent, setCustomVariantKeysByAgent] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState("");
   const [dirty, setDirty] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [savedSkillId, setSavedSkillId] = useState<string | null>(null);
+  const [savedSkillToken, setSavedSkillToken] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
@@ -233,7 +250,7 @@ export default function Home() {
 
   const [scriptInput, setScriptInput] = useState("");
   const [novelContent, setNovelContent] = useState("");
-  const [novelType, setNovelType] = useState("");
+  const [novelType, setNovelType] = useState("one_line_script");
   const [novelAudience, setNovelAudience] = useState("");
   const [novelExpectedEpisodes, setNovelExpectedEpisodes] = useState("");
   const [runTaskId, setRunTaskId] = useState<string | null>(null);
@@ -364,8 +381,13 @@ export default function Home() {
   }, [selectedAgent, selectedSkillId]);
 
   useEffect(() => {
-    setSavedSkillId(null);
+    setSavedSkillToken(null);
   }, [selectedAgentId]);
+
+  useEffect(() => {
+    setSelectedVariantKey(DEFAULT_VARIANT_KEY);
+    setNewVariantKey("");
+  }, [selectedAgentId, selectedSkillId]);
 
   const selectedWorkflow = useMemo(() => {
     if (!selectedAgent) return null;
@@ -377,13 +399,47 @@ export default function Home() {
     return selectedAgent.skills.find((skill) => skill.id === selectedSkillId) ?? null;
   }, [selectedAgent, selectedSkillId]);
 
+  const availableVariantKeys = useMemo(() => {
+    if (!selectedAgent) return [DEFAULT_VARIANT_KEY];
+    const keys = new Set<string>();
+    keys.add(DEFAULT_VARIANT_KEY);
+    selectedAgent.skills.forEach((skill) => {
+      Object.keys(skill.promptVariants ?? {}).forEach((key) => {
+        if (key) keys.add(key);
+      });
+    });
+    (customVariantKeysByAgent[selectedAgent.id] ?? []).forEach((key) => {
+      if (key) keys.add(key);
+    });
+    return Array.from(keys);
+  }, [selectedAgent, customVariantKeysByAgent]);
+
+  useEffect(() => {
+    if (!availableVariantKeys.includes(selectedVariantKey)) {
+      setSelectedVariantKey(DEFAULT_VARIANT_KEY);
+    }
+  }, [availableVariantKeys, selectedVariantKey]);
+
+  const activeSkillPrompt = useMemo(() => {
+    if (!selectedSkill) return "";
+    if (selectedVariantKey === DEFAULT_VARIANT_KEY) {
+      return selectedSkill.promptTemplate;
+    }
+    return selectedSkill.promptVariants?.[selectedVariantKey] ?? "";
+  }, [selectedSkill, selectedVariantKey]);
+
   const selectedSkillDirty = useMemo(() => {
     if (!selectedAgent || !selectedSkill) return false;
     const baselineAgent = baselineAgentsRef.current.find((agent) => agent.id === selectedAgent.id);
     const baselineSkill = baselineAgent?.skills.find((skill) => skill.id === selectedSkill.id);
     if (!baselineSkill) return true;
-    return baselineSkill.promptTemplate !== selectedSkill.promptTemplate;
-  }, [selectedAgent, selectedSkill]);
+    if (selectedVariantKey === DEFAULT_VARIANT_KEY) {
+      return baselineSkill.promptTemplate !== selectedSkill.promptTemplate;
+    }
+    const currentPrompt = selectedSkill.promptVariants?.[selectedVariantKey] ?? "";
+    const baselinePrompt = baselineSkill.promptVariants?.[selectedVariantKey] ?? "";
+    return baselinePrompt !== currentPrompt;
+  }, [selectedAgent, selectedSkill, selectedVariantKey]);
 
   const isNovelToScriptAgent = selectedAgent?.id === "dreamworks-novel-to-script";
 
@@ -469,21 +525,31 @@ export default function Home() {
     }
   };
 
-  const updateSkillPrompt = (skillId: string, promptTemplate: string) => {
+  const updateSkillPrompt = (skillId: string, promptTemplate: string, variantKey: string = DEFAULT_VARIANT_KEY) => {
     setAgents((prev) =>
       prev.map((agent) =>
         agent.id === selectedAgentId
           ? {
               ...agent,
               skills: agent.skills.map((skill) =>
-                skill.id === skillId ? { ...skill, promptTemplate } : skill,
+                skill.id === skillId
+                  ? variantKey === DEFAULT_VARIANT_KEY
+                    ? { ...skill, promptTemplate }
+                    : {
+                        ...skill,
+                        promptVariants: {
+                          ...(skill.promptVariants ?? {}),
+                          [variantKey]: promptTemplate,
+                        },
+                      }
+                  : skill,
               ),
             }
           : agent,
       ),
     );
     if (skillId === selectedSkillId) {
-      setSavedSkillId(null);
+      setSavedSkillToken(null);
     }
     setDirty(true);
   };
@@ -545,17 +611,26 @@ export default function Home() {
     if (!selectedAgent || !selectedSkill || savingConfig) return;
     setSavingConfig(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/v1/config/agents/${encodeURIComponent(selectedAgent.id)}/skills/${encodeURIComponent(selectedSkill.id)}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const isDefaultVariant = selectedVariantKey === DEFAULT_VARIANT_KEY;
+      const activePrompt = isDefaultVariant
+        ? selectedSkill.promptTemplate
+        : (selectedSkill.promptVariants?.[selectedVariantKey] ?? "");
+      const endpoint = isDefaultVariant
+        ? `${API_BASE_URL}/v1/config/agents/${encodeURIComponent(selectedAgent.id)}/skills/${encodeURIComponent(selectedSkill.id)}`
+        : `${API_BASE_URL}/v1/config/agents/${encodeURIComponent(selectedAgent.id)}/skills/${encodeURIComponent(selectedSkill.id)}/variants/${encodeURIComponent(selectedVariantKey)}`;
+      const body = isDefaultVariant
+        ? {
             name: selectedSkill.name,
             promptTemplate: selectedSkill.promptTemplate,
-          }),
-        },
-      );
+          }
+        : {
+            promptTemplate: activePrompt,
+          };
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
       if (!response.ok) {
         const message =
@@ -573,7 +648,15 @@ export default function Home() {
                     ? {
                         ...skill,
                         name: selectedSkill.name,
-                        promptTemplate: selectedSkill.promptTemplate,
+                        promptTemplate: isDefaultVariant
+                          ? selectedSkill.promptTemplate
+                          : skill.promptTemplate,
+                        promptVariants: isDefaultVariant
+                          ? (skill.promptVariants ?? {})
+                          : {
+                              ...(skill.promptVariants ?? {}),
+                              [selectedVariantKey]: activePrompt,
+                            },
                       }
                     : skill,
                 ),
@@ -582,15 +665,47 @@ export default function Home() {
         ),
       );
       baselineAgentsRef.current = nextBaseline;
-      setSavedSkillId(selectedSkill.id);
+      setSavedSkillToken(`${selectedSkill.id}:${selectedVariantKey}`);
       setDirty(hasConfigDiff(agents, nextBaseline));
-      setBanner(`已保存 Skill「${selectedSkill.name}」到数据库。`);
+      setBanner(
+        isDefaultVariant
+          ? `已保存 Skill「${selectedSkill.name}」默认提示词到数据库。`
+          : `已保存 Skill「${selectedSkill.name}」在 variant「${selectedVariantKey}」下的提示词。`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "保存 Skill 到数据库失败。";
       setBanner(message);
     } finally {
       setSavingConfig(false);
     }
+  };
+
+  const addVariantKey = () => {
+    if (!selectedAgent) return;
+    const key = newVariantKey.trim();
+    if (!key) {
+      setBanner("variant_key 不能为空。");
+      return;
+    }
+    if (!VARIANT_KEY_PATTERN.test(key)) {
+      setBanner("variant_key 仅支持小写字母、数字和下划线。");
+      return;
+    }
+    if (availableVariantKeys.includes(key)) {
+      setSelectedVariantKey(key);
+      setBanner(`variant_key「${key}」已存在。`);
+      return;
+    }
+    setCustomVariantKeysByAgent((prev) => {
+      const existing = prev[selectedAgent.id] ?? [];
+      return {
+        ...prev,
+        [selectedAgent.id]: [...existing, key],
+      };
+    });
+    setSelectedVariantKey(key);
+    setNewVariantKey("");
+    setBanner(`已新增 variant_key「${key}」。请为当前 Skill 输入提示词并保存。`);
   };
 
   const resetSelectedAgent = () => {
@@ -607,7 +722,7 @@ export default function Home() {
           : agent,
       ),
     );
-    setSavedSkillId(null);
+    setSavedSkillToken(null);
     setDirty(true);
     setBanner("已恢复当前智能体到最近一次保存版本。");
   };
@@ -823,6 +938,7 @@ export default function Home() {
     if (!selectedAgent || !selectedWorkflow) return;
     let prompt = scriptInput.trim();
     let inputPayload: Record<string, unknown> | undefined;
+    let runtimeVariantKey = "";
 
     if (isNovelToScriptAgent) {
       const content = novelContent.trim();
@@ -853,6 +969,7 @@ export default function Home() {
       }
 
       prompt = content;
+      runtimeVariantKey = type;
       inputPayload = {
         novel_content: content,
         novel_type: type,
@@ -870,7 +987,13 @@ export default function Home() {
     appendLog("正在创建任务...");
 
     const skillPromptOverrides = Object.fromEntries(
-      selectedAgent.skills.map((skill) => [skill.id, skill.promptTemplate]),
+      selectedAgent.skills.map((skill) => {
+        const variantPrompt =
+          runtimeVariantKey && skill.promptVariants?.[runtimeVariantKey]
+            ? skill.promptVariants[runtimeVariantKey]
+            : skill.promptTemplate;
+        return [skill.id, variantPrompt];
+      }),
     );
 
     try {
@@ -1117,11 +1240,42 @@ export default function Home() {
                     <p className="text-sm font-semibold">{selectedSkill.name}</p>
                     <p className="font-mono text-[11px] text-muted-foreground">{selectedSkill.id}</p>
                   </div>
+                  <div className="mb-3 space-y-2 rounded-md border border-border/70 bg-card/50 p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {availableVariantKeys.map((variantKey) => (
+                        <Button
+                          key={variantKey}
+                          type="button"
+                          size="sm"
+                          variant={selectedVariantKey === variantKey ? "default" : "outline"}
+                          onClick={() => setSelectedVariantKey(variantKey)}
+                        >
+                          {variantKey === DEFAULT_VARIANT_KEY ? "default" : variantKey}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newVariantKey}
+                        onChange={(event) => setNewVariantKey(event.target.value)}
+                        placeholder="新增 variant_key（如 one_line_script）"
+                      />
+                      <Button type="button" variant="outline" onClick={addVariantKey}>
+                        新增 variant_key
+                      </Button>
+                    </div>
+                  </div>
                   <Textarea
                     rows={4}
-                    value={selectedSkill.promptTemplate}
-                    onChange={(event) => updateSkillPrompt(selectedSkill.id, event.target.value)}
-                    placeholder="请输入技能提示词模板"
+                    value={activeSkillPrompt}
+                    onChange={(event) =>
+                      updateSkillPrompt(selectedSkill.id, event.target.value, selectedVariantKey)
+                    }
+                    placeholder={
+                      selectedVariantKey === DEFAULT_VARIANT_KEY
+                        ? "请输入默认技能提示词模板"
+                        : `请输入 variant「${selectedVariantKey}」下的技能提示词模板`
+                    }
                   />
                   <div className="mt-3 flex items-center gap-2">
                     <Button
@@ -1133,12 +1287,14 @@ export default function Home() {
                     >
                       {savingConfig
                         ? "保存中..."
-                        : savedSkillId === selectedSkill.id
+                        : savedSkillToken === `${selectedSkill.id}:${selectedVariantKey}`
                           ? "已保存"
                           : "保存当前 Skill"}
                     </Button>
                     {selectedSkillDirty ? (
-                      <span className="text-xs text-muted-foreground">当前 Skill 有未保存修改。</span>
+                      <span className="text-xs text-muted-foreground">
+                        当前 Skill 在 {selectedVariantKey === DEFAULT_VARIANT_KEY ? "default" : selectedVariantKey} 下有未保存修改。
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -1166,11 +1322,17 @@ export default function Home() {
                     onChange={(event) => setNovelContent(event.target.value)}
                     placeholder="小说内容"
                   />
-                  <Input
-                    value={novelType}
-                    onChange={(event) => setNovelType(event.target.value)}
-                    placeholder="小说类型（例如：都市、悬疑、古装、科幻）"
-                  />
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">小说类型</label>
+                    <select
+                      value={novelType}
+                      onChange={(event) => setNovelType(event.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="one_line_script">一句话剧本</option>
+                      <option value="novel_to_script">小说改剧本</option>
+                    </select>
+                  </div>
                   <Input
                     value={novelAudience}
                     onChange={(event) => setNovelAudience(event.target.value)}
