@@ -51,21 +51,6 @@ type StepPanel = {
 
 const STORAGE_KEY = "fun-agent-skill-prompts-v3";
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/fun-agents/api").replace(/\/$/, "");
-const SAMPLE_SCRIPT = `INT. CLASSROOM - DAY
-Teacher Lin asks students to design a short adventure storyboard.
-Xiaoyu proposes a floating city quest, while Ahao insists on a grounded mystery.
-
-EXT. SCHOOL ROOFTOP - SUNSET
-The team argues about the main character. Nana quietly sketches a masked pilot.
-They discover old photos of Dream Harbor with the same symbol.
-
-INT. LIBRARY - NIGHT
-The group finds an archive about "Project Lighthouse".
-The archive mentions three key characters: Lin, Nana, and Captain Zhao.
-
-EXT. DREAM HARBOR - STORM NIGHT
-The prototype airship appears. The masked pilot asks the team to choose:
-save the city core, or expose the truth behind Project Lighthouse.`;
 
 function deepCloneAgents(source: AgentConfig[]): AgentConfig[] {
   return source.map((agent) => ({
@@ -211,7 +196,7 @@ export default function Home() {
   const [dirty, setDirty] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
 
-  const [scriptInput, setScriptInput] = useState(SAMPLE_SCRIPT);
+  const [scriptInput, setScriptInput] = useState("");
   const [runTaskId, setRunTaskId] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string>("IDLE");
   const [runOutput, setRunOutput] = useState("");
@@ -617,7 +602,7 @@ export default function Home() {
     if (!selectedAgent || !selectedWorkflow) return;
     const prompt = scriptInput.trim();
     if (!prompt) {
-      setRunError("请输入剧本文本。");
+      setRunError("请输入测试数据。");
       return;
     }
 
@@ -686,7 +671,7 @@ export default function Home() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
             <Badge className="bg-primary text-primary-foreground">Fun Agent 控制台</Badge>
-            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">梦工厂-智能分镜</h1>
+            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">Fun Agent 1.0</h1>
             <p className="max-w-3xl text-sm text-muted-foreground md:text-base">
               结构层: 智能体 - 工作流 - 技能。测试入口支持输入剧本并流式查看执行过程和结果。
             </p>
@@ -865,7 +850,7 @@ export default function Home() {
 
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
-              <CardTitle>剧本测试入口</CardTitle>
+              <CardTitle>{selectedAgent.name}测试入口</CardTitle>
               <CardDescription>输入剧本后启动智能体，流式查看步骤过程日志与输出结果。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -873,7 +858,7 @@ export default function Home() {
                 rows={10}
                 value={scriptInput}
                 onChange={(event) => setScriptInput(event.target.value)}
-                placeholder="请输入剧本文本"
+                placeholder="请输入测试数据"
               />
 
               <div className="flex flex-wrap items-center gap-2">
