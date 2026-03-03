@@ -45,9 +45,4 @@ Default env values:
 - `prompt`
 - `idempotency_key`
 
-## Static config source
-
-- `config/agent-config.ts`
-
-Frontend reads runtime config from `GET /v1/config/agents` when available.  
-If API returns empty or fails, frontend falls back to local defaults and can persist via `PUT /v1/config/agents`.
+Frontend configuration is loaded from `GET /v1/config/agents` and persisted via `PUT /v1/config/agents`.

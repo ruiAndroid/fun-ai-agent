@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { DEFAULT_AGENT_CONFIGS, type AgentConfig, type AgentStatus } from "@/config/agent-config";
+import { type AgentConfig, type AgentStatus } from "@/config/agent-config";
 
 type TaskCreateResponse = {
   task_id?: string;
@@ -25,16 +25,6 @@ type ConfigAgentsResponse = {
   agents?: unknown;
   detail?: string;
   error?: string;
-};
-
-type StoredSkillPrompts = {
-  agents: Array<{
-    id: string;
-    skills: Array<{
-      id: string;
-      promptTemplate: string;
-    }>;
-  }>;
 };
 
 type RunLogEntry = {
@@ -55,7 +45,6 @@ type StepPanel = {
   outputChars: number;
 };
 
-const STORAGE_KEY = "fun-agent-skill-prompts-v3";
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/fun-agents/api").replace(/\/$/, "");
 
 function deepCloneAgents(source: AgentConfig[]): AgentConfig[] {
@@ -64,80 +53,6 @@ function deepCloneAgents(source: AgentConfig[]): AgentConfig[] {
     workflows: agent.workflows.map((workflow) => ({ ...workflow })),
     skills: agent.skills.map((skill) => ({ ...skill })),
   }));
-}
-
-function toPromptMapFromStorage(raw: string | null): Map<string, Map<string, string>> {
-  const result = new Map<string, Map<string, string>>();
-  if (!raw) return result;
-
-  try {
-    const parsed = JSON.parse(raw) as StoredSkillPrompts | unknown[];
-    const records = Array.isArray(parsed)
-      ? parsed
-      : Array.isArray((parsed as StoredSkillPrompts).agents)
-        ? (parsed as StoredSkillPrompts).agents
-        : [];
-
-    for (const item of records) {
-      if (!item || typeof item !== "object") continue;
-      const agent = item as { id?: unknown; skills?: unknown };
-      if (typeof agent.id !== "string" || !Array.isArray(agent.skills)) continue;
-
-      const skillMap = new Map<string, string>();
-      for (const skillRaw of agent.skills) {
-        if (!skillRaw || typeof skillRaw !== "object") continue;
-        const skill = skillRaw as {
-          id?: unknown;
-          promptTemplate?: unknown;
-          prompt?: unknown;
-          notes?: unknown;
-        };
-        if (typeof skill.id !== "string") continue;
-
-        if (typeof skill.promptTemplate === "string") {
-          skillMap.set(skill.id, skill.promptTemplate);
-        } else if (typeof skill.prompt === "string") {
-          skillMap.set(skill.id, skill.prompt);
-        } else if (typeof skill.notes === "string") {
-          skillMap.set(skill.id, skill.notes);
-        }
-      }
-      result.set(agent.id, skillMap);
-    }
-  } catch {
-    return result;
-  }
-
-  return result;
-}
-
-function applyStoredPrompts(base: AgentConfig[], raw: string | null): AgentConfig[] {
-  const promptMap = toPromptMapFromStorage(raw);
-  if (promptMap.size === 0) return base;
-
-  return base.map((agent) => {
-    const skillMap = promptMap.get(agent.id);
-    if (!skillMap) return agent;
-    return {
-      ...agent,
-      skills: agent.skills.map((skill) => {
-        const stored = skillMap.get(skill.id);
-        return typeof stored === "string" ? { ...skill, promptTemplate: stored } : skill;
-      }),
-    };
-  });
-}
-
-function buildStoragePayload(agents: AgentConfig[]): StoredSkillPrompts {
-  return {
-    agents: agents.map((agent) => ({
-      id: agent.id,
-      skills: agent.skills.map((skill) => ({
-        id: skill.id,
-        promptTemplate: skill.promptTemplate,
-      })),
-    })),
-  };
 }
 
 function normalizeStatus(value: unknown): AgentStatus {
@@ -258,15 +173,16 @@ function parseEventEnvelope(raw: string): TaskEventEnvelope | null {
 
 export default function Home() {
   const streamAbortRef = useRef<AbortController | null>(null);
-  const baselineAgentsRef = useRef<AgentConfig[]>(deepCloneAgents(DEFAULT_AGENT_CONFIGS));
+  const baselineAgentsRef = useRef<AgentConfig[]>([]);
 
-  const [agents, setAgents] = useState<AgentConfig[]>(() => deepCloneAgents(DEFAULT_AGENT_CONFIGS));
-  const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_AGENT_CONFIGS[0]?.id ?? "");
+  const [agents, setAgents] = useState<AgentConfig[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("");
   const [selectedSkillId, setSelectedSkillId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [dirty, setDirty] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  const [loadingAgents, setLoadingAgents] = useState(true);
 
   const [scriptInput, setScriptInput] = useState("");
   const [novelContent, setNovelContent] = useState("");
@@ -283,11 +199,6 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
 
-    const fallbackAgents = applyStoredPrompts(
-      deepCloneAgents(DEFAULT_AGENT_CONFIGS),
-      localStorage.getItem(STORAGE_KEY),
-    );
-
     const loadAgentConfigs = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/v1/config/agents`, { method: "GET" });
@@ -296,25 +207,23 @@ export default function Home() {
           throw new Error(payload.detail ?? payload.error ?? `读取配置失败: ${response.status}`);
         }
 
-        const fromApi = normalizeAgentConfigs(payload.agents);
-        const resolved = fromApi.length > 0 ? fromApi : fallbackAgents;
+        const resolved = normalizeAgentConfigs(payload.agents);
         if (cancelled) return;
 
         baselineAgentsRef.current = deepCloneAgents(resolved);
         setAgents(resolved);
         setSelectedAgentId((prev) => (resolved.find((agent) => agent.id === prev) ? prev : (resolved[0]?.id ?? "")));
-
-        if (fromApi.length === 0) {
-          setBanner("数据库暂无配置，已回退到本地默认配置。");
-        }
+        setBanner(resolved.length === 0 ? "数据库暂无智能体配置。" : null);
       } catch {
         if (cancelled) return;
-        baselineAgentsRef.current = deepCloneAgents(fallbackAgents);
-        setAgents(fallbackAgents);
-        setSelectedAgentId((prev) =>
-          fallbackAgents.find((agent) => agent.id === prev) ? prev : (fallbackAgents[0]?.id ?? ""),
-        );
-        setBanner("读取数据库配置失败，已使用本地配置。");
+        baselineAgentsRef.current = [];
+        setAgents([]);
+        setSelectedAgentId("");
+        setBanner("读取数据库配置失败。");
+      } finally {
+        if (!cancelled) {
+          setLoadingAgents(false);
+        }
       }
     };
 
@@ -496,7 +405,6 @@ export default function Home() {
       const finalAgents = persistedAgents.length > 0 ? persistedAgents : deepCloneAgents(agents);
       setAgents(finalAgents);
       baselineAgentsRef.current = deepCloneAgents(finalAgents);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStoragePayload(finalAgents)));
       setDirty(false);
       setBanner("已保存配置到数据库。");
     } catch (error) {
@@ -821,8 +729,10 @@ export default function Home() {
       <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 sm:px-8">
         <Card>
           <CardHeader>
-            <CardTitle>未找到可用智能体</CardTitle>
-            <CardDescription>请检查数据库配置，或确认 `config/agent-config.ts` 中存在本地回退配置。</CardDescription>
+            <CardTitle>{loadingAgents ? "正在加载智能体配置" : "未找到可用智能体"}</CardTitle>
+            <CardDescription>
+              {loadingAgents ? "正在从数据库读取配置，请稍候。" : "请检查数据库中的智能体配置是否已写入。"}
+            </CardDescription>
           </CardHeader>
         </Card>
       </main>
