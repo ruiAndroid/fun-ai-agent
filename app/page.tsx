@@ -27,6 +27,19 @@ type ConfigAgentsResponse = {
   error?: string;
 };
 
+type ModelsResponse = {
+  data?: unknown;
+  success?: boolean;
+  detail?: string;
+  error?: string;
+};
+
+type ModelOption = {
+  id: string;
+  ownedBy: string;
+  endpointTypes: string[];
+};
+
 type RunLogEntry = {
   id: string;
   at: string;
@@ -124,6 +137,31 @@ function normalizeAgentConfigs(raw: unknown): AgentConfig[] {
   return result;
 }
 
+function normalizeModelOptions(raw: unknown): ModelOption[] {
+  if (!Array.isArray(raw)) return [];
+
+  const options: ModelOption[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const id = asString(row.id)?.trim();
+    if (!id) continue;
+    const endpointTypes = Array.isArray(row.supported_endpoint_types)
+      ? row.supported_endpoint_types
+          .map((entry) => asString(entry)?.trim().toLowerCase() ?? "")
+          .filter((entry) => Boolean(entry))
+      : [];
+    options.push({
+      id,
+      ownedBy: asString(row.owned_by)?.trim() || "",
+      endpointTypes,
+    });
+  }
+
+  options.sort((a, b) => a.id.localeCompare(b.id));
+  return options;
+}
+
 function badgeVariantByStatus(status: AgentStatus): "default" | "secondary" | "destructive" | "outline" {
   if (status === "ONLINE") return "default";
   if (status === "DEGRADED") return "secondary";
@@ -189,6 +227,9 @@ export default function Home() {
   const [savedSkillId, setSavedSkillId] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelLoadError, setModelLoadError] = useState<string | null>(null);
 
   const [scriptInput, setScriptInput] = useState("");
   const [novelContent, setNovelContent] = useState("");
@@ -236,6 +277,42 @@ export default function Home() {
 
     void loadAgentConfigs();
 
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadModels = async () => {
+      setLoadingModels(true);
+      setModelLoadError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/v1/models`, { method: "GET" });
+        const payload = (await response.json().catch(() => ({}))) as ModelsResponse;
+        if (!response.ok) {
+          throw new Error(payload.detail ?? payload.error ?? `读取模型列表失败: ${response.status}`);
+        }
+        if (payload.success === false) {
+          throw new Error(payload.detail ?? payload.error ?? "模型网关返回 success=false");
+        }
+        const options = normalizeModelOptions(payload.data);
+        if (cancelled) return;
+        setModelOptions(options);
+      } catch (error) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : "读取模型列表失败。";
+        setModelOptions([]);
+        setModelLoadError(message);
+      } finally {
+        if (!cancelled) {
+          setLoadingModels(false);
+        }
+      }
+    };
+
+    void loadModels();
     return () => {
       cancelled = true;
     };
@@ -408,6 +485,23 @@ export default function Home() {
     if (skillId === selectedSkillId) {
       setSavedSkillId(null);
     }
+    setDirty(true);
+  };
+
+  const updateWorkflowModelProfile = (workflowId: string, modelProfile: string) => {
+    const normalized = modelProfile.trim();
+    setAgents((prev) =>
+      prev.map((agent) =>
+        agent.id === selectedAgentId
+          ? {
+              ...agent,
+              workflows: agent.workflows.map((workflow) =>
+                workflow.id === workflowId ? { ...workflow, modelProfile: normalized } : workflow,
+              ),
+            }
+          : agent,
+      ),
+    );
     setDirty(true);
   };
 
@@ -964,6 +1058,27 @@ export default function Home() {
                 <div className="rounded-xl border border-border/70 bg-background/50 p-3 text-sm">
                   <p><span className="text-muted-foreground">工作流 ID: </span>{selectedWorkflow.id}</p>
                   <p><span className="text-muted-foreground">模型配置: </span><span className="font-mono">{selectedWorkflow.modelProfile}</span></p>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">模型 ID（modelProfile）</p>
+                    <Input
+                      list="gateway-model-options"
+                      value={selectedWorkflow.modelProfile}
+                      onChange={(event) => updateWorkflowModelProfile(selectedWorkflow.id, event.target.value)}
+                      placeholder={loadingModels ? "模型列表加载中..." : "输入或选择模型 ID"}
+                    />
+                    <datalist id="gateway-model-options">
+                      {modelOptions.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.ownedBy ? `${model.id} (${model.ownedBy})` : model.id}
+                        </option>
+                      ))}
+                    </datalist>
+                    <p className="text-xs text-muted-foreground">
+                      {modelLoadError
+                        ? `模型列表加载失败: ${modelLoadError}`
+                        : `已加载 ${modelOptions.length} 个网关模型，可手动输入自定义 model id。`}
+                    </p>
+                  </div>
                 </div>
               ) : null}
             </CardContent>
