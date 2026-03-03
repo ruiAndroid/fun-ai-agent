@@ -1,14 +1,14 @@
-# fun-ai-agent
+﻿# fun-ai-agent
 
-用于管理智能体工作流配置与技能提示词模板的前端控制台。
+Frontend console for configuring agent workflows and running storyboard tests.
 
-## 技术栈
+## Tech stack
 
-- Next.js（App Router）
+- Next.js (App Router)
 - TypeScript
 - Tailwind CSS + shadcn/ui
 
-## 本地运行
+## Run locally
 
 ```bash
 npm install
@@ -16,30 +16,35 @@ cp .env.example .env.local
 npm run dev
 ```
 
-默认接口配置：
+Default env values:
 
 - `NEXT_PUBLIC_API_BASE_URL=/fun-agents/api`
 - `NEXT_BASE_PATH=/fun-agents`
 
-## 当前能力
+## Current capabilities
 
-- 结构层可视化：`智能体 -> 工作流 -> 技能`
-- 工作流级模型配置展示与选择
-- 技能提示词模板可视化编辑（本地存储）
-- 从前端发起到 plane 的连通性检查请求，包含：
-  - `agent_id`
-  - `workflow_id`
-  - `skill_prompt_override`
-  - `prompt`
+- Agent/workflow/skill configuration view
+- Workflow model selection UI
+- Skill prompt editing with local storage persistence
+- Storyboard test entry:
+  - input script text
+  - create task by selected workflow
+  - stream execution logs (`step_started` / `step_completed` etc.)
+  - stream final output token-by-token
 
-## 配置来源
+## API request fields used by frontend
 
-静态配置定义在：
+`POST /v1/tasks`
+
+- `tenant_id`
+- `agent_id`
+- `workflow_id`
+- `skill_id` (optional, backward compatibility)
+- `skill_prompt_override` (optional, backward compatibility)
+- `skill_prompt_overrides` (recommended, per-skill prompt map)
+- `prompt`
+- `idempotency_key`
+
+## Static config source
 
 - `config/agent-config.ts`
-
-文件包含：
-
-- 智能体元数据
-- 工作流定义（绑定技能与模型）
-- 技能提示词模板

@@ -30,34 +30,40 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     name: "梦工厂-智能分镜",
     owner: "dreamworks",
     status: "ONLINE",
-    description: "支持按工作流选择模型并按技能维护提示词的智能分镜智能体。",
-    defaultWorkflowId: "episode-split",
+    description: "剧本分镜智能体，支持串行流程：剧本智能分集 -> 提取分镜角色。",
+    defaultWorkflowId: "storyboard-pipeline",
     workflows: [
       {
-        id: "episode-split",
-        name: "剧本智能分集",
-        description: "将剧本拆分为分集级别的分镜规划结果。",
+        id: "storyboard-pipeline",
+        name: "剧本分镜全流程",
+        description: "先分集，再基于分集结果提取角色。",
         modelProfile: "mock-default",
       },
       {
-        id: "extract-roles",
-        name: "提取分集角色",
-        description: "从剧本文本中提取关键角色和候选角色信息。",
-        modelProfile: "openai-gpt-4o-mini",
+        id: "episode-split-only",
+        name: "仅剧本分集",
+        description: "只执行剧本智能分集。",
+        modelProfile: "mock-default",
+      },
+      {
+        id: "extract-roles-only",
+        name: "仅角色提取",
+        description: "只执行角色提取。",
+        modelProfile: "mock-default",
       },
     ],
     skills: [
       {
         id: "storyboard-episode-split",
-        name: "分镜-剧本分集",
+        name: "剧本分集",
         promptTemplate:
-          "你是一名专业分镜策划，请把剧本拆分为多集，并给出每集开场钩子、核心冲突、结尾悬念与场景分配。",
+          "你是专业分镜策划，请将输入剧本拆分为分集规划，给出每集开场钩子、核心冲突、结尾悬念和场景拆分。",
       },
       {
         id: "storyboard-extract-roles",
-        name: "分镜-角色提取",
+        name: "角色提取",
         promptTemplate:
-          "请从剧本中提取核心角色，输出角色名称与简短角色定位描述。",
+          "请基于输入内容提取角色信息，输出角色名称和一句话角色定位描述。",
       },
     ],
   },
