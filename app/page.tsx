@@ -38,6 +38,17 @@ type RunLogEntry = {
   level: "info" | "step" | "error";
 };
 
+type StepPanel = {
+  stepId: string;
+  stepName: string;
+  skillId: string;
+  stepIndex: number;
+  stepTotal: number;
+  status: "pending" | "running" | "completed";
+  output: string;
+  outputChars: number;
+};
+
 const STORAGE_KEY = "fun-agent-skill-prompts-v3";
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/fun-agents/api").replace(/\/$/, "");
 const SAMPLE_SCRIPT = `INT. CLASSROOM - DAY
@@ -205,6 +216,7 @@ export default function Home() {
   const [runStatus, setRunStatus] = useState<string>("IDLE");
   const [runOutput, setRunOutput] = useState("");
   const [runLogs, setRunLogs] = useState<RunLogEntry[]>([]);
+  const [stepPanels, setStepPanels] = useState<StepPanel[]>([]);
   const [runError, setRunError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -304,6 +316,18 @@ export default function Home() {
     setRunLogs((prev) => [...prev, entry]);
   };
 
+  const upsertStepPanel = (nextPanel: StepPanel) => {
+    setStepPanels((prev) => {
+      const idx = prev.findIndex((item) => item.stepId === nextPanel.stepId);
+      if (idx === -1) {
+        return [...prev, nextPanel].sort((a, b) => a.stepIndex - b.stepIndex);
+      }
+      const merged = [...prev];
+      merged[idx] = nextPanel;
+      return merged.sort((a, b) => a.stepIndex - b.stepIndex);
+    });
+  };
+
   const stopStreaming = () => {
     if (streamAbortRef.current) {
       streamAbortRef.current.abort();
@@ -318,6 +342,7 @@ export default function Home() {
     setRunStatus("IDLE");
     setRunOutput("");
     setRunLogs([]);
+    setStepPanels([]);
     setRunError(null);
   };
 
@@ -409,6 +434,22 @@ export default function Home() {
     if (eventType === "runtime_resolved") {
       const workflowId = asString(payload.workflow_id) ?? "-";
       const steps = Array.isArray(payload.steps) ? payload.steps : [];
+      const nextPanels: StepPanel[] = [];
+      steps.forEach((item, index) => {
+        if (!item || typeof item !== "object") return;
+        const step = item as Record<string, unknown>;
+        nextPanels.push({
+          stepId: asString(step.step_id) ?? `step-${index + 1}`,
+          stepName: asString(step.step_name) ?? asString(step.step_id) ?? `步骤${index + 1}`,
+          skillId: asString(step.skill_id) ?? "unknown-skill",
+          stepIndex: index + 1,
+          stepTotal: steps.length,
+          status: "pending",
+          output: "",
+          outputChars: 0,
+        });
+      });
+      setStepPanels(nextPanels);
       const summary = steps
         .map((item, index) => {
           if (!item || typeof item !== "object") return `${index + 1}.unknown`;
@@ -423,20 +464,48 @@ export default function Home() {
     }
 
     if (eventType === "step_started") {
-      const stepIndex = asString(payload.step_index) ?? "?";
-      const stepTotal = asString(payload.step_total) ?? "?";
+      const stepId = asString(payload.step_id) ?? `step-${Date.now()}`;
+      const stepIndexRaw = asString(payload.step_index);
+      const stepTotalRaw = asString(payload.step_total);
+      const stepIndex = Number(stepIndexRaw ?? "0") || 0;
+      const stepTotal = Number(stepTotalRaw ?? "0") || 0;
       const stepName = asString(payload.step_name) ?? asString(payload.step_id) ?? "unknown-step";
       const skillId = asString(payload.skill_id) ?? "unknown-skill";
-      appendLog(`步骤开始 [${stepIndex}/${stepTotal}] ${stepName} (${skillId})`, "step");
+      upsertStepPanel({
+        stepId,
+        stepName,
+        skillId,
+        stepIndex: stepIndex || stepPanels.length + 1,
+        stepTotal: stepTotal || Math.max(stepPanels.length, 1),
+        status: "running",
+        output: "",
+        outputChars: 0,
+      });
+      appendLog(`步骤开始 [${stepIndexRaw ?? "?"}/${stepTotalRaw ?? "?"}] ${stepName} (${skillId})`, "step");
       return;
     }
 
     if (eventType === "step_completed") {
-      const stepIndex = asString(payload.step_index) ?? "?";
-      const stepTotal = asString(payload.step_total) ?? "?";
+      const stepId = asString(payload.step_id) ?? `step-${Date.now()}`;
+      const stepIndexRaw = asString(payload.step_index);
+      const stepTotalRaw = asString(payload.step_total);
+      const stepIndex = Number(stepIndexRaw ?? "0") || 0;
+      const stepTotal = Number(stepTotalRaw ?? "0") || 0;
       const stepName = asString(payload.step_name) ?? asString(payload.step_id) ?? "unknown-step";
       const outputChars = asString(payload.output_chars) ?? "0";
-      appendLog(`步骤完成 [${stepIndex}/${stepTotal}] ${stepName} 输出字符=${outputChars}`, "step");
+      const stepOutput = asString(payload.output) ?? asString(payload.output_preview) ?? "";
+      const skillId = asString(payload.skill_id) ?? "unknown-skill";
+      upsertStepPanel({
+        stepId,
+        stepName,
+        skillId,
+        stepIndex: stepIndex || stepPanels.length + 1,
+        stepTotal: stepTotal || Math.max(stepPanels.length, 1),
+        status: "completed",
+        output: stepOutput,
+        outputChars: Number(outputChars) || stepOutput.length,
+      });
+      appendLog(`步骤完成 [${stepIndexRaw ?? "?"}/${stepTotalRaw ?? "?"}] ${stepName} 输出字符=${outputChars}`, "step");
       return;
     }
 
@@ -828,6 +897,34 @@ export default function Home() {
               ) : null}
 
               <Separator />
+
+              <div className="rounded-xl border border-border/70 bg-background/50 p-3">
+                <p className="mb-2 text-sm font-semibold">步骤分栏输出</p>
+                {stepPanels.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">暂无步骤数据，开始运行后将按步骤展示输出。</p>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {stepPanels.map((step) => (
+                      <div key={step.stepId} className="rounded-lg border border-border/70 bg-card/80 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">
+                            步骤 {step.stepIndex}/{step.stepTotal}: {step.stepName}
+                          </p>
+                          <Badge variant={step.status === "completed" ? "default" : "secondary"}>
+                            {step.status === "completed" ? "已完成" : step.status === "running" ? "执行中" : "待执行"}
+                          </Badge>
+                        </div>
+                        <p className="mb-2 font-mono text-[11px] text-muted-foreground">
+                          skill={step.skillId} outputChars={step.outputChars}
+                        </p>
+                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
+                          {step.output || "该步骤尚无输出。"}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="rounded-xl border border-border/70 bg-background/50 p-3">
