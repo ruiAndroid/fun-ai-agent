@@ -181,6 +181,8 @@ export default function Home() {
   const [selectedSkillId, setSelectedSkillId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [savedSkillId, setSavedSkillId] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
   const [loadingAgents, setLoadingAgents] = useState(true);
 
@@ -279,6 +281,10 @@ export default function Home() {
     }
   }, [selectedAgent, selectedSkillId]);
 
+  useEffect(() => {
+    setSavedSkillId(null);
+  }, [selectedAgentId]);
+
   const selectedWorkflow = useMemo(() => {
     if (!selectedAgent) return null;
     return selectedAgent.workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null;
@@ -288,6 +294,14 @@ export default function Home() {
     if (!selectedAgent) return null;
     return selectedAgent.skills.find((skill) => skill.id === selectedSkillId) ?? null;
   }, [selectedAgent, selectedSkillId]);
+
+  const selectedSkillDirty = useMemo(() => {
+    if (!selectedAgent || !selectedSkill) return false;
+    const baselineAgent = baselineAgentsRef.current.find((agent) => agent.id === selectedAgent.id);
+    const baselineSkill = baselineAgent?.skills.find((skill) => skill.id === selectedSkill.id);
+    if (!baselineSkill) return true;
+    return baselineSkill.promptTemplate !== selectedSkill.promptTemplate;
+  }, [selectedAgent, selectedSkill]);
 
   const isNovelToScriptAgent = selectedAgent?.id === "dreamworks-novel-to-script";
 
@@ -386,10 +400,18 @@ export default function Home() {
           : agent,
       ),
     );
+    if (skillId === selectedSkillId) {
+      setSavedSkillId(null);
+    }
     setDirty(true);
   };
 
-  const saveToDatabase = async () => {
+  const persistConfigs = async (
+    successMessage: string,
+    onSuccess?: (persistedAgents: AgentConfig[]) => void,
+  ) => {
+    if (savingConfig) return;
+    setSavingConfig(true);
     try {
       const response = await fetch(`${API_BASE_URL}/v1/config/agents`, {
         method: "PUT",
@@ -406,11 +428,27 @@ export default function Home() {
       setAgents(finalAgents);
       baselineAgentsRef.current = deepCloneAgents(finalAgents);
       setDirty(false);
-      setBanner("已保存配置到数据库。");
+      onSuccess?.(finalAgents);
+      setBanner(successMessage);
     } catch (error) {
       const message = error instanceof Error ? error.message : "保存数据库配置失败。";
       setBanner(message);
+    } finally {
+      setSavingConfig(false);
     }
+  };
+
+  const saveToDatabase = async () => {
+    await persistConfigs("已保存配置到数据库。");
+  };
+
+  const saveCurrentSkill = async () => {
+    if (!selectedSkill) return;
+    const skillId = selectedSkill.id;
+    const skillName = selectedSkill.name;
+    await persistConfigs(`已保存 Skill「${skillName}」到数据库。`, () => {
+      setSavedSkillId(skillId);
+    });
   };
 
   const resetSelectedAgent = () => {
@@ -427,6 +465,7 @@ export default function Home() {
           : agent,
       ),
     );
+    setSavedSkillId(null);
     setDirty(true);
     setBanner("已恢复当前智能体到最近一次保存版本。");
   };
@@ -915,6 +954,24 @@ export default function Home() {
                     onChange={(event) => updateSkillPrompt(selectedSkill.id, event.target.value)}
                     placeholder="请输入技能提示词模板"
                   />
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={saveCurrentSkill}
+                      disabled={savingConfig || !selectedSkillDirty}
+                    >
+                      {savingConfig
+                        ? "保存中..."
+                        : savedSkillId === selectedSkill.id
+                          ? "已保存"
+                          : "保存当前 Skill"}
+                    </Button>
+                    {selectedSkillDirty ? (
+                      <span className="text-xs text-muted-foreground">当前 Skill 有未保存修改。</span>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">请先选择一个技能。</p>
