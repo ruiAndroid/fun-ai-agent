@@ -21,6 +21,12 @@ type TaskEventEnvelope = {
   payload?: Record<string, unknown>;
 };
 
+type ConfigAgentsResponse = {
+  agents?: unknown;
+  detail?: string;
+  error?: string;
+};
+
 type StoredSkillPrompts = {
   agents: Array<{
     id: string;
@@ -134,6 +140,71 @@ function buildStoragePayload(agents: AgentConfig[]): StoredSkillPrompts {
   };
 }
 
+function normalizeStatus(value: unknown): AgentStatus {
+  const status = asString(value)?.toUpperCase();
+  if (status === "ONLINE" || status === "DEGRADED" || status === "OFFLINE") {
+    return status;
+  }
+  return "ONLINE";
+}
+
+function normalizeAgentConfigs(raw: unknown): AgentConfig[] {
+  if (!Array.isArray(raw)) return [];
+
+  const result: AgentConfig[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    const id = asString(entry.id)?.trim();
+    if (!id) continue;
+
+    const workflowsRaw = Array.isArray(entry.workflows) ? entry.workflows : [];
+    const workflows = workflowsRaw
+      .map((workflow) => {
+        if (!workflow || typeof workflow !== "object") return null;
+        const row = workflow as Record<string, unknown>;
+        const workflowId = asString(row.id)?.trim();
+        if (!workflowId) return null;
+        return {
+          id: workflowId,
+          name: asString(row.name)?.trim() || workflowId,
+          description: asString(row.description)?.trim() || "",
+          modelProfile: asString(row.modelProfile)?.trim() || "",
+        };
+      })
+      .filter((workflow): workflow is AgentConfig["workflows"][number] => workflow !== null);
+
+    const skillsRaw = Array.isArray(entry.skills) ? entry.skills : [];
+    const skills = skillsRaw
+      .map((skill) => {
+        if (!skill || typeof skill !== "object") return null;
+        const row = skill as Record<string, unknown>;
+        const skillId = asString(row.id)?.trim();
+        if (!skillId) return null;
+        return {
+          id: skillId,
+          name: asString(row.name)?.trim() || skillId,
+          promptTemplate: asString(row.promptTemplate)?.trim() || "",
+        };
+      })
+      .filter((skill): skill is AgentConfig["skills"][number] => skill !== null);
+
+    const defaultWorkflowId = asString(entry.defaultWorkflowId)?.trim() || workflows[0]?.id || "";
+    result.push({
+      id,
+      name: asString(entry.name)?.trim() || id,
+      owner: asString(entry.owner)?.trim() || "",
+      status: normalizeStatus(entry.status),
+      description: asString(entry.description)?.trim() || "",
+      defaultWorkflowId,
+      workflows,
+      skills,
+    });
+  }
+
+  return result;
+}
+
 function badgeVariantByStatus(status: AgentStatus): "default" | "secondary" | "destructive" | "outline" {
   if (status === "ONLINE") return "default";
   if (status === "DEGRADED") return "secondary";
@@ -187,6 +258,7 @@ function parseEventEnvelope(raw: string): TaskEventEnvelope | null {
 
 export default function Home() {
   const streamAbortRef = useRef<AbortController | null>(null);
+  const baselineAgentsRef = useRef<AgentConfig[]>(deepCloneAgents(DEFAULT_AGENT_CONFIGS));
 
   const [agents, setAgents] = useState<AgentConfig[]>(() => deepCloneAgents(DEFAULT_AGENT_CONFIGS));
   const [selectedAgentId, setSelectedAgentId] = useState<string>(DEFAULT_AGENT_CONFIGS[0]?.id ?? "");
@@ -209,12 +281,48 @@ export default function Home() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    const merged = applyStoredPrompts(
+    let cancelled = false;
+
+    const fallbackAgents = applyStoredPrompts(
       deepCloneAgents(DEFAULT_AGENT_CONFIGS),
       localStorage.getItem(STORAGE_KEY),
     );
-    setAgents(merged);
-    setSelectedAgentId((prev) => (merged.find((agent) => agent.id === prev) ? prev : (merged[0]?.id ?? "")));
+
+    const loadAgentConfigs = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/v1/config/agents`, { method: "GET" });
+        const payload = (await response.json().catch(() => ({}))) as ConfigAgentsResponse;
+        if (!response.ok) {
+          throw new Error(payload.detail ?? payload.error ?? `读取配置失败: ${response.status}`);
+        }
+
+        const fromApi = normalizeAgentConfigs(payload.agents);
+        const resolved = fromApi.length > 0 ? fromApi : fallbackAgents;
+        if (cancelled) return;
+
+        baselineAgentsRef.current = deepCloneAgents(resolved);
+        setAgents(resolved);
+        setSelectedAgentId((prev) => (resolved.find((agent) => agent.id === prev) ? prev : (resolved[0]?.id ?? "")));
+
+        if (fromApi.length === 0) {
+          setBanner("数据库暂无配置，已回退到本地默认配置。");
+        }
+      } catch {
+        if (cancelled) return;
+        baselineAgentsRef.current = deepCloneAgents(fallbackAgents);
+        setAgents(fallbackAgents);
+        setSelectedAgentId((prev) =>
+          fallbackAgents.find((agent) => agent.id === prev) ? prev : (fallbackAgents[0]?.id ?? ""),
+        );
+        setBanner("读取数据库配置失败，已使用本地配置。");
+      }
+    };
+
+    void loadAgentConfigs();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -372,14 +480,33 @@ export default function Home() {
     setDirty(true);
   };
 
-  const saveToLocal = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStoragePayload(agents)));
-    setDirty(false);
-    setBanner("已保存技能提示词到本地存储。");
+  const saveToDatabase = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/v1/config/agents`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agents }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as ConfigAgentsResponse;
+      if (!response.ok) {
+        throw new Error(payload.detail ?? payload.error ?? `保存失败: ${response.status}`);
+      }
+
+      const persistedAgents = normalizeAgentConfigs(payload.agents);
+      const finalAgents = persistedAgents.length > 0 ? persistedAgents : deepCloneAgents(agents);
+      setAgents(finalAgents);
+      baselineAgentsRef.current = deepCloneAgents(finalAgents);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildStoragePayload(finalAgents)));
+      setDirty(false);
+      setBanner("已保存配置到数据库。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "保存数据库配置失败。";
+      setBanner(message);
+    }
   };
 
   const resetSelectedAgent = () => {
-    const fallback = DEFAULT_AGENT_CONFIGS.find((agent) => agent.id === selectedAgentId);
+    const fallback = baselineAgentsRef.current.find((agent) => agent.id === selectedAgentId);
     if (!fallback) return;
     setAgents((prev) =>
       prev.map((agent) =>
@@ -393,7 +520,7 @@ export default function Home() {
       ),
     );
     setDirty(true);
-    setBanner("已恢复当前智能体的工作流和技能提示词默认值。");
+    setBanner("已恢复当前智能体到最近一次保存版本。");
   };
 
   const handleTaskEvent = (event: TaskEventEnvelope) => {
@@ -695,7 +822,7 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle>未找到可用智能体</CardTitle>
-            <CardDescription>请检查 `config/agent-config.ts` 是否配置了至少一个智能体。</CardDescription>
+            <CardDescription>请检查数据库配置，或确认 `config/agent-config.ts` 中存在本地回退配置。</CardDescription>
           </CardHeader>
         </Card>
       </main>
@@ -794,10 +921,10 @@ export default function Home() {
                 <p className="md:col-span-2"><span className="text-muted-foreground">描述: </span>{selectedAgent.description}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={saveToLocal}>保存技能提示词</Button>
-                <Button type="button" variant="outline" onClick={resetSelectedAgent}>恢复当前智能体默认值</Button>
+                <Button type="button" onClick={saveToDatabase}>保存到数据库</Button>
+                <Button type="button" variant="outline" onClick={resetSelectedAgent}>恢复到已保存版本</Button>
               </div>
-              <p className="text-xs text-muted-foreground">{dirty ? "当前有未保存修改。" : "当前配置已保存到本地。"}</p>
+              <p className="text-xs text-muted-foreground">{dirty ? "当前有未保存修改。" : "当前配置已落库。"}</p>
             </CardContent>
           </Card>
 

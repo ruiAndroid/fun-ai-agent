@@ -25,7 +25,7 @@ Default env values:
 
 - Agent/workflow/skill configuration view
 - Workflow model selection UI
-- Skill prompt editing with local storage persistence
+- Skill prompt editing with API persistence (DB-backed), local config fallback
 - Storyboard test entry:
   - input script text
   - create task by selected workflow
@@ -48,3 +48,6 @@ Default env values:
 ## Static config source
 
 - `config/agent-config.ts`
+
+Frontend reads runtime config from `GET /v1/config/agents` when available.  
+If API returns empty or fails, frontend falls back to local defaults and can persist via `PUT /v1/config/agents`.
