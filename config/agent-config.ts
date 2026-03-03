@@ -71,10 +71,24 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     id: "dreamworks-novel-to-script",
     name: "梦工厂-小说转剧本",
     owner: "dreamworks",
-    status: "DEGRADED",
-    description: "新建占位智能体，后续将补充小说转剧本的工作流与技能。",
-    defaultWorkflowId: "",
-    workflows: [],
-    skills: [],
+    status: "ONLINE",
+    description: "小说转剧本智能体，当前已接入小说输入接收与标准化。",
+    defaultWorkflowId: "novel-intake",
+    workflows: [
+      {
+        id: "novel-intake",
+        name: "小说输入接收",
+        description: "接收并标准化小说输入 JSON。",
+        modelProfile: "mock-default",
+      },
+    ],
+    skills: [
+      {
+        id: "novel-intake-parse",
+        name: "小说输入解析",
+        promptTemplate:
+          "你是小说转剧本任务的输入解析器。请读取 JSON 输入中的 novel_content、target_audience、expected_episode_count，并输出结构化的标准化摘要，供后续步骤使用。",
+      },
+    ],
   },
 ];

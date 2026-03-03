@@ -197,6 +197,9 @@ export default function Home() {
   const [banner, setBanner] = useState<string | null>(null);
 
   const [scriptInput, setScriptInput] = useState("");
+  const [novelContent, setNovelContent] = useState("");
+  const [novelAudience, setNovelAudience] = useState("");
+  const [novelExpectedEpisodes, setNovelExpectedEpisodes] = useState("");
   const [runTaskId, setRunTaskId] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string>("IDLE");
   const [runOutput, setRunOutput] = useState("");
@@ -268,6 +271,8 @@ export default function Home() {
     if (!selectedAgent) return null;
     return selectedAgent.skills.find((skill) => skill.id === selectedSkillId) ?? null;
   }, [selectedAgent, selectedSkillId]);
+
+  const isNovelToScriptAgent = selectedAgent?.id === "dreamworks-novel-to-script";
 
   const filteredAgents = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -600,8 +605,39 @@ export default function Home() {
 
   const runStoryboardWorkflow = async () => {
     if (!selectedAgent || !selectedWorkflow) return;
-    const prompt = scriptInput.trim();
-    if (!prompt) {
+    let prompt = scriptInput.trim();
+    let inputPayload: Record<string, unknown> | undefined;
+
+    if (isNovelToScriptAgent) {
+      const content = novelContent.trim();
+      const audience = novelAudience.trim();
+      const episodesRaw = novelExpectedEpisodes.trim();
+      if (!content) {
+        setRunError("请输入小说内容。");
+        return;
+      }
+      if (!audience) {
+        setRunError("请输入小说受众。");
+        return;
+      }
+      if (!episodesRaw) {
+        setRunError("请输入期望集数。");
+        return;
+      }
+
+      const episodes = Number(episodesRaw);
+      if (!Number.isInteger(episodes) || episodes <= 0) {
+        setRunError("期望集数必须是大于 0 的整数。");
+        return;
+      }
+
+      prompt = content;
+      inputPayload = {
+        novel_content: content,
+        target_audience: audience,
+        expected_episode_count: episodes,
+      };
+    } else if (!prompt) {
       setRunError("请输入测试数据。");
       return;
     }
@@ -626,6 +662,7 @@ export default function Home() {
           skill_id: selectedSkill?.id,
           skill_prompt_override: selectedSkill?.promptTemplate,
           skill_prompt_overrides: skillPromptOverrides,
+          input_payload: inputPayload,
           prompt,
           idempotency_key: `run-${selectedAgent.id}-${selectedWorkflow.id}-${Date.now()}`,
         }),
@@ -851,15 +888,42 @@ export default function Home() {
           <Card className="panel-enter border-border/80 bg-card/85 backdrop-blur">
             <CardHeader>
               <CardTitle>{selectedAgent.name}测试入口</CardTitle>
-              <CardDescription>输入剧本后启动智能体，流式查看步骤过程日志与输出结果。</CardDescription>
+              <CardDescription>
+                {isNovelToScriptAgent
+                  ? "输入小说内容、受众和期望集数，前端将以 JSON 传递给智能体。"
+                  : "输入测试数据后启动智能体，流式查看步骤过程日志与输出结果。"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea
-                rows={10}
-                value={scriptInput}
-                onChange={(event) => setScriptInput(event.target.value)}
-                placeholder="请输入测试数据"
-              />
+              {isNovelToScriptAgent ? (
+                <div className="space-y-3">
+                  <Textarea
+                    rows={8}
+                    value={novelContent}
+                    onChange={(event) => setNovelContent(event.target.value)}
+                    placeholder="小说内容"
+                  />
+                  <Input
+                    value={novelAudience}
+                    onChange={(event) => setNovelAudience(event.target.value)}
+                    placeholder="小说受众（例如：18-28 都市女性）"
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={novelExpectedEpisodes}
+                    onChange={(event) => setNovelExpectedEpisodes(event.target.value)}
+                    placeholder="期望集数"
+                  />
+                </div>
+              ) : (
+                <Textarea
+                  rows={10}
+                  value={scriptInput}
+                  onChange={(event) => setScriptInput(event.target.value)}
+                  placeholder="请输入测试数据"
+                />
+              )}
 
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" onClick={runStoryboardWorkflow} disabled={running || !selectedWorkflow}>
