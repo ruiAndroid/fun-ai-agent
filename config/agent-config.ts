@@ -67,4 +67,14 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
       },
     ],
   },
+  {
+    id: "dreamworks-novel-to-script",
+    name: "梦工厂-小说转剧本",
+    owner: "dreamworks",
+    status: "DEGRADED",
+    description: "新建占位智能体，后续将补充小说转剧本的工作流与技能。",
+    defaultWorkflowId: "",
+    workflows: [],
+    skills: [],
+  },
 ];
